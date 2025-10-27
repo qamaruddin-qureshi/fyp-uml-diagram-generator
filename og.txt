@@ -1,0 +1,392 @@
+As a Customer, I want to register Account with emailAddress and password.
+As a Customer, I want to login to my Account.
+As a Customer, I want to view Product details by category.
+As a Customer, I want to add a Product to the ShoppingCart.
+As a Customer, I want to update ShoppingCart Product quantity.
+As a Customer, I want to place an Order with shippingAddress.
+As a Customer, I want to view my OrderHistory for orderDate and totalAmount.
+As a Customer, I want to manage my Addresses (add, edit, delete).
+As Administrator, I want to manage a Product (add, edit, delete) including name, price, and description.
+As Administrator, I want to manage a Category (create, rename, delete).
+As Administrator, I want to view Order details.
+As a GuestUser, I want to browse Products.
+As a GuestUser, I want to create Account to become a RegisteredCustomer.
+As a PaymentGateway, I want to process Order Payment.
+As a ShippingService, I want to update Order Status.
+As a user, I want to sign up with email/password so that I can create account.
+As a user, I want to log in so that I can access my workspace.
+As a user, I want to reset my password in case I forget it.
+As a user, I want to create a new project so that I can organize tasks under it.
+As a user, I want to create tasks within a project so that I can manage my work.
+As a user, I want to assign tasks to team members so that responsibilities are clear.
+As a user, I want to set deadlines for tasks so that they are completed on time.
+As a user, I want to update task status (e.g., To Do, In Progress, Done) so that I can track progress.
+As a user, I want to invite others to my project so that we can collaborate.
+As a user, I want to comment on tasks so that I can communicate with teammates.
+As a user, I want to receive notifications when a task is assigned to me so that I don’t miss it.
+As a user, I want to get reminders about upcoming deadlines so I can complete tasks on time.
+As a user, I want to filter tasks by status or assignee so that I can focus on relevant items.
+As a user, I want to search for tasks or projects by keyword so that I can find them quickly.
+As a user, I want to update my profile picture and name so my teammates recognize me.
+As a student, I want to register for courses so that I can attend classes in the upcoming semester.
+As a student, I want to view my timetable so that I know when and where my classes are.
+As a student, I want to check my grades so that I can track my academic progress.
+As a student, I want to download course materials so that I can study offline.
+As a student, I want to message professors or classmates so that I can ask questions or collaborate.
+As a student, I want to pay my tuition fees online so that I can confirm my enrollment.
+As a student, I want to submit assignments through the portal so that my professors can evaluate them.
+As a professor, I want to create and update course content so that students have access to the right materials.
+As a professor, I want to post grades for assignments and exams so that students can see their performance.
+As a professor, I want to manage student attendance so that I can track participation.
+As admin, I want to approve or reject course registrations so that enrollment rules are enforced.
+As admin, I want to add new users (students or faculty) to the system so that they can access services.
+As admin, I want to generate reports on course performance so that the university can evaluate success rates.
+As admin, I want to manage academic calendars so that semester dates are correctly reflected.
+As admin, I want to manage system permissions so that users can only access appropriate features.
+As a patient, I want to create account using my email and password so that I can access the online appointment system.
+As a patient, I want to log into the system securely so that I can view and manage my medical information.
+As a patient, I want to update my profile with personal details like phone number, address, and date of birth so that doctors can have accurate information about me.
+As a patient, I want to search for doctors by name, specialization, or availability so that I can quickly find a suitable doctor.
+As a patient, I want to view detailed profiles of doctors including their qualifications, experience, and patient ratings so that I can make informed decisions.
+As a patient, I want to view a doctor’s available time slots so that I can choose appointment that fits my schedule.
+As a patient, I want to book appointment by selecting a doctor and a specific time slot so that I can visit the clinic without waiting.
+As a patient, I want to receive confirmation of my appointment by email and in the system dashboard so that I know my booking was successful.
+As a patient, I want to cancel or reschedule appointment so that I can manage my plans flexibly.
+As a patient, I want to receive reminders before my appointment via email or SMS so that I don’t forget my scheduled visit.
+As a patient, I want to view my past and upcoming appointments so that I can track my medical visits.
+As a patient, I want to access and download my medical reports after a consultation so that I can keep a personal health record.
+As a patient, I want to communicate with my doctor via secure messages after the appointment so that I can clarify doubts about prescriptions.
+As a doctor, I want to log into the system securely so that I can manage my appointments and patient records.
+As a doctor, I want to update my availability schedule so that patients can book appointments only during my working hours.
+As a doctor, I want to view the list of appointments scheduled with me so that I can prepare for upcoming consultations.
+As a doctor, I want to access each patient’s medical history before a consultation so that I can provide better care.
+As a doctor, I want to upload prescriptions and medical reports after each appointment so that the patient can access them later.
+As a doctor, I want to send follow-up instructions to patients so that treatment continues even after they leave the clinic.
+As a system admin, I want to manage all user accounts so that I can deactivate or reset access if necessary.
+As a system admin, I want to monitor system activity and appointment statistics so that I can identify and resolve issues proactively.
+As a system admin, I want to approve doctor registrations after verification so that only qualified professionals can offer services.
+As a system admin, I want to generate monthly reports on appointments and system usage so that I can evaluate platform performance.
+As a system admin, I want to manage system-wide settings like working hours, emergency flags, and service categories so that the platform stays up to date.
+As a system admin, I want to approve doctor registrations after verification so that only qualified professionals can offer services.
+As a system admin, I want to generate monthly reports on appointments and system usage so that I can evaluate platform performance.
+As a system admin, I want to manage system-wide settings like working hours, emergency flags, and service categories so that the platform stays up to date.
+The Customer registers Account using their emailAddress and password.
+The Admin approves the Order and updates the Payment status.
+The User adds Product to Cart and proceeds to checkout.
+The Customer places Order for multiple Product.
+The System processes Payment and sends Confirmation email.
+The Manager creates Catalog and adds new Item.
+The Buyer views Cart and selects Product.
+The Seller receives Notification about new Order.
+The Customer owns ShoppingCart that contains multiple Product.
+The Platform validates User credentials before accessing Account.
+The Database stores OrderHistory and retrieves Invoice.
+The Admin manages Inventory and updates Product price.
+The User submits Payment and tracks Order status.
+The Order includes multiple Item and has ShippingAddress.
+The UserProfile contains emailAddress phoneNumber and address.
+The Cart consists of Product with quantity and price.
+The Transaction processes Payment and generates Receipt.
+The Driver books Reservation and receives Confirmation.
+The Student enrolls Course and downloads Certificate.
+The Patient schedules Appointment and views MedicalRecord.
+The Teacher creates Assignment and grades Submission.
+As a Customer, I want to register Account using my emailAddress and password.
+The Customer creates Account using emailAddress and password.
+As a Customer, I want to log in to my Account using valid credentials.
+The Customer logs into Account and accesses Dashboard.
+As a Customer, I want to view Product details by category.
+The Customer browses Product and filters by Category.
+As a Customer, I want to add a Product to the ShoppingCart.
+The Customer adds Product to ShoppingCart for checkout.
+As a Customer, I want to update Product quantity in my ShoppingCart.
+The Customer updates ShoppingCart and recalculates totalAmount.
+As a Customer, I want to place Order with shippingAddress.
+The Customer places Order and receives ConfirmationEmail.
+As a Customer, I want to view my OrderHistory including orderDate and totalAmount.
+The Customer checks OrderHistory and tracks delivery progress.
+As a Customer, I want to manage my Addresses by adding or deleting entries.
+The Customer edits AddressBook and updates default shippingAddress.
+As Administrator, I want to manage Product information including name, price, and description.
+The Administrator adds new Product and modifies Product details.
+As Administrator, I want to manage a Category to organize Products.
+The Administrator creates Category and assigns Product under it.
+As Administrator, I want to view detailed Orders for review.
+The Administrator reviews Order details and updates PaymentStatus.
+As GuestUser, I want to browse Products without logging in.
+The GuestUser views Product catalog but cannot purchase.
+As a GuestUser, I want to create Account to become a RegisteredCustomer.
+The GuestUser registers Account and verifies emailAddress.
+As a PaymentGateway, I want to process Order Payment securely.
+The PaymentGateway validates Transaction and generates Receipt.
+As a ShippingService, I want to update Order Status after dispatch.
+The ShippingService sends DeliveryUpdate to Customer.
+As a user, I want to sign up with email and password so that I can create account.
+The User registers Account and verifies it via confirmationLink.
+As a user, I want to log in so that I can access my workspace.
+The User logs into System and accesses Dashboard.
+As a user, I want to reset my password when I forget it.
+The User requests PasswordReset and updates credentials.
+As a user, I want to create a new Project to organize tasks.
+The User creates Project and adds Task entries.
+As a user, I want to create tasks within a Project for work tracking.
+The User defines Task with title, description, and deadline.
+As a user, I want to assign tasks to team members so responsibilities are clear.
+The User assigns Task to TeamMember for collaboration.
+As a user, I want to set deadlines for tasks so that they are completed on time.
+The User adds DueDate field to each Task.
+As a user, I want to update task status to track progress.
+The User changes TaskStatus from ToDo to Done.
+As a user, I want to invite others to my Project for collaboration.
+The User sends ProjectInvite to multiple Members.
+As a user, I want to comment on tasks for communication.
+The User posts Comment under Task for teammates.
+As a user, I want to receive notifications when a task is assigned to me.
+The User receives TaskNotification in their Dashboard.
+As a user, I want to get reminders about upcoming deadlines.
+The User receives ReminderEmail before due date.
+As a user, I want to filter tasks by status or assignee.
+The User applies Filter to Task list by Status.
+As a user, I want to search for tasks or projects by keyword.
+The User searches ProjectDatabase by TaskName.
+As a user, I want to update my profile picture and name.
+The User updates ProfileInfo with photo and displayName.
+As a student, I want to register for courses each semester.
+The Student enrolls in Course through Portal.
+As a student, I want to view my timetable for all courses.
+The Student checks Timetable and saves it as PDF.
+As a student, I want to check my grades for completed courses.
+The Student views GradeReport for each Course.
+As a student, I want to download course materials for offline use.
+The Student downloads LectureMaterial from CoursePage.
+As a student, I want to message professors and classmates.
+The Student sends Message through CourseChat system.
+As a student, I want to pay my tuition fees online.
+The Student completes Payment and receives ConfirmationReceipt.
+As a student, I want to submit assignments through the portal.
+The Student uploads Assignment and waits for Evaluation.
+As a professor, I want to create and update course content.
+The Professor uploads LectureNotes and updates CourseContent.
+As a professor, I want to post grades for assignments and exams.
+The Professor enters GradeData into CourseSystem.
+As a professor, I want to manage student attendance.
+The Professor marks AttendanceRecord for each class.
+As admin, I want to approve or reject course registrations.
+The Admin reviews CourseRequest and updates RegistrationStatus.
+As admin, I want to add new users to the system.
+The Admin adds Student or Faculty accounts.
+As admin, I want to generate reports on course performance.
+The Admin generates PerformanceReport and exports it.
+As admin, I want to manage academic calendars.
+The Admin updates AcademicCalendar with semester dates.
+As admin, I want to manage system permissions.
+The Admin assigns RolePermissions to users.
+As a patient, I want to create account using email and password.
+The Patient registers Account to access AppointmentSystem.
+As a patient, I want to log into the system securely.
+The Patient logs into Portal and views Dashboard.
+As a patient, I want to update my profile with personal details.
+The Patient edits Profile including phoneNumber and address.
+As a patient, I want to search for doctors by name or specialization.
+The Patient searches DoctorList by specialty.
+As a patient, I want to view detailed profiles of doctors.
+The Patient views DoctorProfile including rating and experience.
+As a patient, I want to view a doctor’s available time slots.
+The Patient checks AvailabilitySchedule for selected Doctor.
+As a patient, I want to book appointment easily.
+The Patient books Appointment and receives ConfirmationEmail.
+As a patient, I want to cancel or reschedule appointment.
+The Patient updates AppointmentStatus in system.
+As a patient, I want to receive reminders before my appointment.
+The Patient receives ReminderNotification via email.
+As a patient, I want to view my past and upcoming appointments.
+The Patient reviews AppointmentHistory in Dashboard.
+As a patient, I want to access and download my medical reports.
+The Patient downloads MedicalReport after consultation.
+As a patient, I want to message my doctor for follow-up.
+The Patient sends SecureMessage to Doctor.
+As a doctor, I want to log into the system securely.
+The Doctor accesses Portal using login credentials.
+As a doctor, I want to update my availability schedule.
+The Doctor updates WorkingHours for appointments.
+As a doctor, I want to view list of appointments scheduled.
+The Doctor views AppointmentList with patient details.
+As a doctor, I want to access each patient’s medical history.
+The Doctor opens MedicalRecord before consultation.
+As a doctor, I want to upload prescriptions and medical reports.
+The Doctor uploads Prescription and Report after appointment.
+As a doctor, I want to send follow-up instructions to patients.
+The Doctor sends FollowUpMessage via platform.
+As a system admin, I want to manage all user accounts.
+The SystemAdmin deactivates or resets user access.
+As a system admin, I want to monitor system activity and statistics.
+The SystemAdmin analyzes AppointmentMetrics and usage trends.
+As a system admin, I want to approve doctor registrations after verification.
+The SystemAdmin verifies DoctorProfile and approves access.
+As a system admin, I want to generate monthly reports on system usage.
+The SystemAdmin compiles MonthlyReport on performance.
+As a system admin, I want to manage system-wide settings.
+The SystemAdmin updates configuration for service categories.
+The Customer owns ShoppingCart that contains multiple Product.
+The Platform validates User credentials before granting Account access.
+The Database stores OrderHistory and retrieves Invoice for printing.
+The Admin manages Inventory and updates Product price.
+The User submits Payment and tracks Order status through Dashboard.
+The Order includes multiple Item and has ShippingAddress.
+The UserProfile contains emailAddress, phoneNumber, and address.
+The Cart consists of Product with quantity and price.
+The Transaction processes Payment and generates Receipt.
+The Driver books Reservation and receives Confirmation.
+The Student enrolls in Course and downloads Certificate.
+The Patient schedules Appointment and views MedicalRecord.
+The Teacher creates Assignment and grades Submission.
+As a HomeOwner, I want to control my lights remotely using a mobile app.
+The HomeOwner switches Lights on or off through the SmartApp.
+As a HomeOwner, I want to schedule light automation based on time.
+The HomeOwner creates AutomationRule to turn Lights on at sunset.
+As a HomeOwner, I want to monitor my home temperature.
+The HomeOwner views TemperatureData from ThermostatSensor.
+As a HomeOwner, I want to adjust thermostat settings.
+The HomeOwner changes TemperatureSetpoint using SmartController.
+As a HomeOwner, I want to receive alerts when motion is detected.
+The System sends MotionAlert to HomeOwner’s smartphone.
+As a HomeOwner, I want to lock and unlock doors remotely.
+The HomeOwner controls SmartLock via the mobile dashboard.
+As a HomeOwner, I want to integrate new devices into the system.
+The HomeOwner adds SmartDevice to HomeNetwork.
+As a HomeOwner, I want to assign access permissions to family members.
+The HomeOwner shares AccessRights with FamilyMember accounts.
+As a GuestUser, I want to control basic functions with temporary access.
+The GuestUser accesses SmartHome features with limited permissions.
+As a SystemAdmin, I want to manage connected devices in all homes.
+The SystemAdmin monitors DeviceStatus and network health.
+As a SystemAdmin, I want to generate usage analytics reports.
+The SystemAdmin compiles EnergyConsumptionReport monthly.
+As a Technician, I want to perform remote diagnostics on malfunctioning devices.
+The Technician accesses DeviceLogs and runs Diagnostics remotely.
+As a VoiceAssistant, I want to execute commands for home control.
+The VoiceAssistant triggers DeviceAction based on spoken input.
+As a SecurityCamera, I want to record video when motion is detected.
+The SecurityCamera uploads RecordedFootage to CloudStorage.
+As a HomeOwner, I want to view live surveillance feed from my cameras.
+The HomeOwner streams CameraFeed via the SmartHomeApp.
+As a HomeOwner, I want to receive power usage insights.
+The HomeOwner reviews PowerConsumptionChart for each device.
+As a MaintenanceAgent, I want to update firmware across connected devices.
+The MaintenanceAgent pushes FirmwareUpdate to all active units.
+As a Traveler, I want to search for flights based on destination and date.
+The Traveler searches Flight by departureCity, arrivalCity, and travelDate.
+As a Traveler, I want to compare flight prices from different airlines.
+The Traveler views FlightComparison for selected route.
+As a Traveler, I want to book a flight online.
+The Traveler selects Flight and completes Booking using PaymentGateway.
+As a Traveler, I want to receive eTickets after booking confirmation.
+The System emails eTicket to Traveler’s registered emailAddress.
+As a Traveler, I want to cancel or reschedule my booking.
+The Traveler modifies BookingStatus and requests refund.
+As a Traveler, I want to book hotels for my trip.
+The Traveler searches Hotel by city, priceRange, and rating.
+As a Traveler, I want to view hotel details including amenities and photos.
+The Traveler views HotelDetails and reads GuestReviews.
+As a Traveler, I want to book flight and hotel together for a discount.
+The Traveler creates TravelPackage combining Flight and HotelBooking.
+As a Traveler, I want to rent a car at my destination.
+The Traveler selects CarRental and provides pickupTime.
+As a Traveler, I want to view my full itinerary in one place.
+The Traveler reviews Itinerary including flight, hotel, and car details.
+As a RegisteredUser, I want to save favorite destinations for later.
+The RegisteredUser bookmarks Destination in Profile.
+As a RegisteredUser, I want to manage my payment methods.
+The RegisteredUser updates PaymentOption in AccountSettings.
+As a TravelAgent, I want to manage multiple customer bookings.
+The TravelAgent creates GroupBooking for several Travelers.
+As a TravelAgent, I want to generate invoices for completed trips.
+The TravelAgent downloads Invoice for each confirmed Booking.
+As a SystemAdmin, I want to monitor all platform transactions.
+The SystemAdmin validates PaymentTransaction logs daily.
+As a SystemAdmin, I want to update flight and hotel data via API.
+The SystemAdmin syncs ExternalAPI data with PlatformDatabase.
+As a SupportAgent, I want to assist customers facing booking issues.
+The SupportAgent opens SupportTicket and resolves user query.
+As a Traveler, I want to track flight status in real time.
+The Traveler receives FlightStatusUpdate via notification.
+As a Traveler, I want to earn reward points for each booking.
+The Traveler collects RewardPoints in LoyaltyProgram.
+As a Traveler, I want to redeem my reward points for discounts.
+The Traveler applies RewardPoints during Checkout.
+As a Traveler, I want to review airlines and hotels after my trip.
+The Traveler submits Review for Flight or Hotel stay.
+As a System, I want to send trip reminders before travel dates.
+The System sends ReminderEmail with itinerary summary.
+The Customer registers Account with personal details and verification documents.
+As a Customer, I want to check my AccountBalance so that I can monitor my savings.
+The System verifies Customer identity before allowing transactions.
+As a Customer, I want to transfer Funds to another Account so that I can pay bills easily.
+The Teller reviews Customer transaction history to detect unusual activity.
+As a Teller, I want to update Customer information to maintain accurate records.
+The Administrator manages BankBranches and assigns Staff.
+As Administrator, I want to generate DailyTransactionReport so that I can monitor bank operations.
+The System processes Loan applications after eligibility verification.
+As a Customer, I want to apply for a Loan so that I can purchase property.
+The LoanOfficer reviews LoanApplication and approves or rejects it.
+As a LoanOfficer, I want to schedule PaymentInstallments for approved Loans.
+The Customer receives Notification for Loan repayment reminders.
+As a Customer, I want to view my PaymentHistory so that I can track repayments.
+The Auditor reviews all BankTransactions for compliance checks.
+As Auditor, I want to download TransactionReport so that I can verify financial accuracy.
+The Gamer creates Account using username, email, and password.
+As a Gamer, I want to customize my Avatar so that I can express my identity.
+The Player joins MultiplayerRoom to compete with other Players.
+As a Player, I want to invite Friends to my game lobby so that we can play together.
+The System tracks PlayerScore during gameplay sessions.
+As a Player, I want to view my LeaderboardRank so that I can compare my progress.
+The GameAdmin manages GameEvents and in-game rewards.
+As a GameAdmin, I want to monitor PlayerActivity to prevent cheating.
+The Player purchases virtualItems using in-game currency.
+As a Player, I want to earn Rewards for completing challenges.
+The System saves PlayerProgress automatically after each session.
+As a Player, I want to resume Game from my last checkpoint so that I don’t lose progress.
+The Developer updates GameVersion with new features and bug fixes.
+As a Developer, I want to collect PlayerFeedback so that I can improve gameplay experience.
+The System sends Notification for upcoming Tournaments.
+As a Gamer, I want to register for Tournament events so that I can compete globally.
+The HomeOwner registers Account to manage connectedDevices.
+As a HomeOwner, I want to add new Device so that I can control it remotely.
+The System connects SmartLight to the network after successful pairing.
+As a HomeOwner, I want to adjust LightBrightness using mobileApp for convenience.
+The DeviceController monitors RoomTemperature in real time.
+As a HomeOwner, I want to set TemperatureSchedule so that my home stays comfortable.
+The MotionSensor detects unusual activity and triggers alert.
+As a HomeOwner, I want to receive SecurityAlert so that I can check for intruders.
+The Administrator manages DeviceFirmware updates across all users.
+As Administrator, I want to deploy FirmwarePatch to improve device performance.
+The HomeOwner links SmartDoorLock with mobileApp for remote access.
+As a HomeOwner, I want to unlock Door using FaceRecognition so that I can enter securely.
+The System logs all DeviceActivity for audit purposes.
+As a HomeOwner, I want to review ActivityHistory so that I can identify suspicious events.
+The VoiceAssistant executes commands for lighting and temperature control.
+As a HomeOwner, I want to control devices using VoiceCommand to simplify daily tasks.
+The System integrates EnergyMeter to track power usage.
+As a HomeOwner, I want to analyze EnergyReport so that I can reduce electricity costs.
+The SupportAgent assists HomeOwner with troubleshooting DeviceConnection issues.
+As a SupportAgent, I want to view DeviceStatus remotely so that I can resolve user problems.
+The Student creates Account using email and password to start learning.
+As a Student, I want to receive personalized CourseRecommendations so that I can study efficiently.
+The Instructor uploads LectureVideo with relevant resources.
+As Instructor, I want to create InteractiveQuiz so that students stay engaged.
+The AITutor analyzes StudentPerformance using learning analytics.
+As a Student, I want to get AdaptiveFeedback so that I can focus on weak areas.
+The System records CompletionRate for each enrolled Course.
+As Instructor, I want to monitor StudentProgress so that I can provide guidance.
+The Student participates in LiveSession with Instructor.
+As a Student, I want to ask Questions during LiveSession to clarify doubts.
+The Administrator manages UserAccounts and system configurations.
+As Administrator, I want to generate PlatformReport to evaluate usage metrics.
+The AITutor recommends RevisionMaterial based on test results.
+As a Student, I want to practice SuggestedExercises so that I can improve performance.
+The Student earns Certificate after completing Course successfully.
+As a Student, I want to download Certificate to showcase my achievement.
+The System detects plagiarism in Assignment submissions.
+As Instructor, I want to review PlagiarismReport so that academic integrity is maintained.
+The Student accesses OfflineMode to continue learning without internet.
+As a Student, I want to sync progress when online so that data remains updated.

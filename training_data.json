@@ -1,0 +1,1992 @@
+[
+  {
+    "user_story": "As a Customer, I want to register Account with emailAddress and password.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "Account",
+      "methods": [
+        "register"
+      ],
+      "attributes": [
+        "emailAddress",
+        "password"
+      ],
+      "use_case": "Register Account",
+      "relationship": [
+        "has"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "submits",
+        "provides"
+      ],
+      "flow_steps": [
+        "Customer provides emailAddress and password",
+        "Customer submits registration form",
+        "System creates Account"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to login to my Account.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "Account",
+      "methods": [
+        "login"
+      ],
+      "attributes": [
+        "emailAddress",
+        "password",
+        "account_status"
+      ],
+      "use_case": "Login to Account",
+      "relationship": [
+        "own"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "accesses",
+        "verifies"
+      ],
+      "flow_steps": [
+        "Customer requests login",
+        "System authenticates Customer",
+        "System grants access to Account"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to view Product details by category.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "Product",
+      "methods": [
+        "viewDetails",
+        "filterByCategory"
+      ],
+      "attributes": [
+        "category",
+        "name",
+        "description",
+        "price"
+      ],
+      "use_case": "View Product Details by Category",
+      "relationship": [
+        "browses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "views",
+        "filters"
+      ],
+      "flow_steps": [
+        "Customer selects a Category",
+        "System displays Products in Category",
+        "Customer selects a Product",
+        "System displays Product details"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to add a Product to the ShoppingCart.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "ShoppingCart",
+      "methods": [
+        "addProduct"
+      ],
+      "attributes": [
+        "Product",
+        "quantity"
+      ],
+      "use_case": "Add Product to Cart",
+      "relationship": [
+        "has"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "adds",
+        "selects"
+      ],
+      "flow_steps": [
+        "Customer views a Product",
+        "Customer clicks 'Add to Cart'",
+        "System adds Product to ShoppingCart"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to update ShoppingCart Product quantity.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "ShoppingCart",
+      "methods": [
+        "updateQuantity"
+      ],
+      "attributes": [
+        "Product",
+        "newQuantity"
+      ],
+      "use_case": "Update Cart Quantity",
+      "relationship": [
+        "modifies"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "updates",
+        "changes"
+      ],
+      "flow_steps": [
+        "Customer views ShoppingCart",
+        "Customer changes quantity for a Product",
+        "System updates the quantity in the cart"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to place an Order with shippingAddress.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "Order",
+      "methods": [
+        "placeOrder",
+        "create"
+      ],
+      "attributes": [
+        "shippingAddress",
+        "cartItems",
+        "totalAmount"
+      ],
+      "use_case": "Place Order",
+      "relationship": [
+        "creates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "submits",
+        "provides"
+      ],
+      "flow_steps": [
+        "Customer proceeds to checkout",
+        "Customer provides shippingAddress",
+        "Customer confirms order",
+        "System creates Order"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to view my OrderHistory for orderDate and totalAmount.",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "OrderHistory",
+      "methods": [
+        "viewHistory"
+      ],
+      "attributes": [
+        "orderDate",
+        "totalAmount",
+        "orderStatus"
+      ],
+      "use_case": "View Order History",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "accesses",
+        "views"
+      ],
+      "flow_steps": [
+        "Customer navigates to Order History",
+        "System displays list of past Orders",
+        "Customer views details (date, amount)"
+      ]
+    }
+  },
+  {
+    "user_story": "As a Customer, I want to manage my Addresses (add, edit, delete).",
+    "groq_output": {
+      "actor": "Customer",
+      "class": "Address",
+      "methods": [
+        "addAddress",
+        "editAddress",
+        "deleteAddress"
+      ],
+      "attributes": [
+        "street",
+        "city",
+        "zipCode",
+        "country"
+      ],
+      "use_case": "Manage Addresses",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "adds",
+        "edits",
+        "deletes"
+      ],
+      "flow_steps": [
+        "Customer goes to profile",
+        "Customer selects 'Manage Addresses'",
+        "Customer adds, edits, or deletes an address"
+      ]
+    }
+  },
+  {
+    "user_story": "As Administrator, I want to manage a Product (add, edit, delete) including name, price, and description.",
+    "groq_output": {
+      "actor": "Administrator",
+      "class": "Product",
+      "methods": [
+        "addProduct",
+        "editProduct",
+        "deleteProduct"
+      ],
+      "attributes": [
+        "name",
+        "price",
+        "description",
+        "category"
+      ],
+      "use_case": "Manage Product",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "creates",
+        "updates",
+        "removes"
+      ],
+      "flow_steps": [
+        "Administrator logs in",
+        "Administrator navigates to Product Management",
+        "Administrator performs CRUD operations on Products"
+      ]
+    }
+  },
+  {
+    "user_story": "As Administrator, I want to manage a Category (create, rename, delete).",
+    "groq_output": {
+      "actor": "Administrator",
+      "class": "Category",
+      "methods": [
+        "createCategory",
+        "renameCategory",
+        "deleteCategory"
+      ],
+      "attributes": [
+        "categoryName",
+        "categoryDescription"
+      ],
+      "use_case": "Manage Category",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "creates",
+        "updates",
+        "removes"
+      ],
+      "flow_steps": [
+        "Administrator logs in",
+        "Administrator navigates to Category Management",
+        "Administrator performs CRUD operations on Categories"
+      ]
+    }
+  },
+  {
+    "user_story": "As Administrator, I want to view Order details.",
+    "groq_output": {
+      "actor": "Administrator",
+      "class": "Order",
+      "methods": [
+        "viewOrderDetails"
+      ],
+      "attributes": [
+        "orderId",
+        "customerInfo",
+        "items",
+        "totalAmount",
+        "status"
+      ],
+      "use_case": "View Order Details",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "searches",
+        "views"
+      ],
+      "flow_steps": [
+        "Administrator logs in",
+        "Administrator navigates to Order Management",
+        "Administrator selects an Order",
+        "System displays Order details"
+      ]
+    }
+  },
+  {
+    "user_story": "As a GuestUser, I want to browse Products.",
+    "groq_output": {
+      "actor": "GuestUser",
+      "class": "Product",
+      "methods": [
+        "browseProducts",
+        "viewProduct"
+      ],
+      "attributes": [
+        "name",
+        "price",
+        "description"
+      ],
+      "use_case": "Browse Products",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "navigates",
+        "views"
+      ],
+      "flow_steps": [
+        "GuestUser visits site",
+        "GuestUser navigates to product listings",
+        "GuestUser views products"
+      ]
+    }
+  },
+  {
+    "user_story": "As a GuestUser, I want to create Account to become a RegisteredCustomer.",
+    "groq_output": {
+      "actor": "GuestUser",
+      "class": "Account",
+      "methods": [
+        "createAccount",
+        "register"
+      ],
+      "attributes": [
+        "emailAddress",
+        "password",
+        "username"
+      ],
+      "use_case": "Create Account",
+      "relationship": [
+        "becomes"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "submits",
+        "fills"
+      ],
+      "flow_steps": [
+        "GuestUser clicks 'Register'",
+        "GuestUser fills registration form",
+        "System creates Account",
+        "GuestUser becomes RegisteredCustomer"
+      ]
+    }
+  },
+  {
+    "user_story": "As a PaymentGateway, I want to process Order Payment.",
+    "groq_output": {
+      "actor": "PaymentGateway",
+      "class": "Payment",
+      "methods": [
+        "processPayment"
+      ],
+      "attributes": [
+        "orderId",
+        "amount",
+        "paymentDetails",
+        "paymentStatus"
+      ],
+      "use_case": "Process Order Payment",
+      "relationship": [
+        "processes"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "receives",
+        "validates",
+        "updates"
+      ],
+      "flow_steps": [
+        "System sends payment request to PaymentGateway",
+        "PaymentGateway processes payment",
+        "PaymentGateway sends status back to System"
+      ]
+    }
+  },
+  {
+    "user_story": "As a ShippingService, I want to update Order Status.",
+    "groq_output": {
+      "actor": "ShippingService",
+      "class": "Order",
+      "methods": [
+        "updateOrderStatus"
+      ],
+      "attributes": [
+        "orderId",
+        "trackingNumber",
+        "shippingStatus"
+      ],
+      "use_case": "Update Order Status",
+      "relationship": [
+        "updates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "sends",
+        "updates"
+      ],
+      "flow_steps": [
+        "ShippingService picks up package",
+        "ShippingService sends status update (e.g., 'Shipped') to System",
+        "System updates Order Status"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to sign up with email/password so that I can create account.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Account",
+      "methods": [
+        "signUp",
+        "createAccount"
+      ],
+      "attributes": [
+        "email",
+        "password"
+      ],
+      "use_case": "Sign Up for Account",
+      "relationship": [
+        "creates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "submits",
+        "provides"
+      ],
+      "flow_steps": [
+        "User provides email and password",
+        "User submits sign-up form",
+        "System creates Account"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to log in so that I can access my workspace.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Account",
+      "methods": [
+        "login",
+        "authenticate"
+      ],
+      "attributes": [
+        "email",
+        "password"
+      ],
+      "use_case": "Log In",
+      "relationship": [
+        "accesses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "provides",
+        "accesses"
+      ],
+      "flow_steps": [
+        "User provides credentials",
+        "System authenticates user",
+        "System grants access to workspace"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to reset my password in case I forget it.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Account",
+      "methods": [
+        "resetPassword",
+        "requestPasswordReset"
+      ],
+      "attributes": [
+        "email",
+        "newPassword",
+        "resetToken"
+      ],
+      "use_case": "Reset Password",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "requests",
+        "updates"
+      ],
+      "flow_steps": [
+        "User requests password reset",
+        "System sends reset link to email",
+        "User follows link and sets new password"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to create a new project so that I can organize tasks under it.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Project",
+      "methods": [
+        "createProject"
+      ],
+      "attributes": [
+        "projectName",
+        "projectDescription"
+      ],
+      "use_case": "Create New Project",
+      "relationship": [
+        "creates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "creates",
+        "defines"
+      ],
+      "flow_steps": [
+        "User clicks 'New Project'",
+        "User provides project name",
+        "System creates the project"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to create tasks within a project so that I can manage my work.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Task",
+      "methods": [
+        "createTask"
+      ],
+      "attributes": [
+        "taskName",
+        "description",
+        "projectId"
+      ],
+      "use_case": "Create Task",
+      "relationship": [
+        "addsTo"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "creates",
+        "adds"
+      ],
+      "flow_steps": [
+        "User selects a Project",
+        "User clicks 'New Task'",
+        "User provides task details",
+        "System creates task within the project"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to assign tasks to team members so that responsibilities are clear.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Task",
+      "methods": [
+        "assignTask"
+      ],
+      "attributes": [
+        "assigneeId",
+        "taskId"
+      ],
+      "use_case": "Assign Task",
+      "relationship": [
+        "assigns"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "assigns"
+      ],
+      "flow_steps": [
+        "User opens a Task",
+        "User selects a team member as assignee",
+        "System updates the task assignment"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to set deadlines for tasks so that they are completed on time.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Task",
+      "methods": [
+        "setDeadline"
+      ],
+      "attributes": [
+        "dueDate",
+        "taskId"
+      ],
+      "use_case": "Set Task Deadline",
+      "relationship": [
+        "updates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "sets",
+        "updates"
+      ],
+      "flow_steps": [
+        "User opens a Task",
+        "User selects a due date",
+        "System updates the task deadline"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to update task status (e.g., To Do, In Progress, Done) so that I can track progress.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Task",
+      "methods": [
+        "updateStatus"
+      ],
+      "attributes": [
+        "status",
+        "taskId"
+      ],
+      "use_case": "Update Task Status",
+      "relationship": [
+        "updates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "changes",
+        "moves"
+      ],
+      "flow_steps": [
+        "User views a Task",
+        "User changes the status (e.g., drag-and-drop)",
+        "System updates the task status"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to invite others to my project so that we can collaborate.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Project",
+      "methods": [
+        "inviteMember"
+      ],
+      "attributes": [
+        "email",
+        "projectId",
+        "role"
+      ],
+      "use_case": "Invite to Project",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "invites",
+        "adds"
+      ],
+      "flow_steps": [
+        "User opens Project settings",
+        "User enters collaborator's email",
+        "System sends invitation"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to comment on tasks so that I can communicate with teammates.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Comment",
+      "methods": [
+        "addComment"
+      ],
+      "attributes": [
+        "commentText",
+        "taskId",
+        "authorId"
+      ],
+      "use_case": "Comment on Task",
+      "relationship": [
+        "interactsWith"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "writes",
+        "submits"
+      ],
+      "flow_steps": [
+        "User opens a Task",
+        "User types a comment",
+        "User submits comment",
+        "System associates comment with the task"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to receive notifications when a task is assigned to me so that I don’t miss it.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Notification",
+      "methods": [
+        "receiveNotification",
+        "triggerNotification"
+      ],
+      "attributes": [
+        "notificationType",
+        "userId",
+        "taskId"
+      ],
+      "use_case": "Receive Task Assignment Notification",
+      "relationship": [
+        "receives"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "receives",
+        "views"
+      ],
+      "flow_steps": [
+        "Another user assigns a task to User",
+        "System generates a notification",
+        "System delivers notification to User"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to get reminders about upcoming deadlines so I can complete tasks on time.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Reminder",
+      "methods": [
+        "receiveReminder"
+      ],
+      "attributes": [
+        "reminderType",
+        "dueDate",
+        "taskId"
+      ],
+      "use_case": "Receive Deadline Reminder",
+      "relationship": [
+        "receives"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "receives",
+        "views"
+      ],
+      "flow_steps": [
+        "Task deadline approaches",
+        "System generates a reminder",
+        "System delivers reminder to User"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to filter tasks by status or assignee so that I can focus on relevant items.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Task",
+      "methods": [
+        "filterTasks"
+      ],
+      "attributes": [
+        "filterByStatus",
+        "filterByAssignee"
+      ],
+      "use_case": "Filter Tasks",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "applies",
+        "filters",
+        "views"
+      ],
+      "flow_steps": [
+        "User views task list",
+        "User applies a filter (status or assignee)",
+        "System displays matching tasks"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to search for tasks or projects by keyword so that I can find them quickly.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Search",
+      "methods": [
+        "search"
+      ],
+      "attributes": [
+        "keyword"
+      ],
+      "use_case": "Search for Tasks/Projects",
+      "relationship": [
+        "uses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "enters",
+        "searches"
+      ],
+      "flow_steps": [
+        "User enters keyword in search bar",
+        "User submits search",
+        "System displays matching tasks and projects"
+      ]
+    }
+  },
+  {
+    "user_story": "As a user, I want to update my profile picture and name so my teammates recognize me.",
+    "groq_output": {
+      "actor": "User",
+      "class": "Profile",
+      "methods": [
+        "updateProfile"
+      ],
+      "attributes": [
+        "profilePicture",
+        "name"
+      ],
+      "use_case": "Update Profile",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "updates",
+        "uploads"
+      ],
+      "flow_steps": [
+        "User navigates to Profile settings",
+        "User uploads new picture or edits name",
+        "System saves changes"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to register for courses so that I can attend classes in the upcoming semester.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "Course",
+      "methods": [
+        "registerForCourse"
+      ],
+      "attributes": [
+        "courseId",
+        "studentId",
+        "semester"
+      ],
+      "use_case": "Register for Courses",
+      "relationship": [
+        "enrollsIn"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "submits"
+      ],
+      "flow_steps": [
+        "Student logs in",
+        "Student browses course catalog",
+        "Student adds courses to registration cart",
+        "Student submits registration"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to view my timetable so that I know when and where my classes are.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "Timetable",
+      "methods": [
+        "viewTimetable"
+      ],
+      "attributes": [
+        "courseName",
+        "time",
+        "location",
+        "day"
+      ],
+      "use_case": "View Timetable",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "accesses",
+        "views"
+      ],
+      "flow_steps": [
+        "Student logs in",
+        "Student navigates to Timetable section",
+        "System displays personalized timetable"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to check my grades so that I can track my academic progress.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "Grade",
+      "methods": [
+        "viewGrades"
+      ],
+      "attributes": [
+        "courseId",
+        "assignmentGrade",
+        "examGrade",
+        "finalGrade"
+      ],
+      "use_case": "Check Grades",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "accesses",
+        "views"
+      ],
+      "flow_steps": [
+        "Student logs in",
+        "Student navigates to Grades section",
+        "System displays grades for all courses"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to download course materials so that I can study offline.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "CourseMaterial",
+      "methods": [
+        "downloadMaterial"
+      ],
+      "attributes": [
+        "file",
+        "courseId"
+      ],
+      "use_case": "Download Course Materials",
+      "relationship": [
+        "downloads"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "downloads"
+      ],
+      "flow_steps": [
+        "Student navigates to a course page",
+        "Student selects a material (e.g., PDF)",
+        "Student clicks download"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to message professors or classmates so that I can ask questions or collaborate.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "Message",
+      "methods": [
+        "sendMessage"
+      ],
+      "attributes": [
+        "recipientId",
+        "messageBody",
+        "subject"
+      ],
+      "use_case": "Message Users",
+      "relationship": [
+        "sends"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "composes",
+        "sends"
+      ],
+      "flow_steps": [
+        "Student opens messaging system",
+        "Student selects recipient (professor/classmate)",
+        "Student writes and sends message"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to pay my tuition fees online so that I can confirm my enrollment.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "TuitionFee",
+      "methods": [
+        "payTuition"
+      ],
+      "attributes": [
+        "amount",
+        "paymentMethod",
+        "studentId"
+      ],
+      "use_case": "Pay Tuition Fees",
+      "relationship": [
+        "pays"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "submits"
+      ],
+      "flow_steps": [
+        "Student navigates to finance section",
+        "Student views outstanding fees",
+        "Student selects payment method and pays"
+      ]
+    }
+  },
+  {
+    "user_story": "As a student, I want to submit assignments through the portal so that my professors can evaluate them.",
+    "groq_output": {
+      "actor": "Student",
+      "class": "Assignment",
+      "methods": [
+        "submitAssignment"
+      ],
+      "attributes": [
+        "assignmentId",
+        "fileUpload",
+        "submissionDate"
+      ],
+      "use_case": "Submit Assignment",
+      "relationship": [
+        "submits"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "uploads",
+        "submits"
+      ],
+      "flow_steps": [
+        "Student navigates to assignment page",
+        "Student uploads assignment file",
+        "Student clicks submit"
+      ]
+    }
+  },
+  {
+    "user_story": "As a professor, I want to create and update course content so that students have access to the right materials.",
+    "groq_output": {
+      "actor": "Professor",
+      "class": "CourseContent",
+      "methods": [
+        "createContent",
+        "updateContent"
+      ],
+      "attributes": [
+        "courseId",
+        "file",
+        "description",
+        "title"
+      ],
+      "use_case": "Manage Course Content",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "uploads",
+        "edits",
+        "posts"
+      ],
+      "flow_steps": [
+        "Professor logs in",
+        "Professor selects a course",
+        "Professor uploads or edits course materials"
+      ]
+    }
+  },
+  {
+    "user_story": "As a professor, I want to post grades for assignments and exams so that students can see their performance.",
+    "groq_output": {
+      "actor": "Professor",
+      "class": "Grade",
+      "methods": [
+        "postGrade"
+      ],
+      "attributes": [
+        "studentId",
+        "assignmentId",
+        "gradeValue"
+      ],
+      "use_case": "Post Grades",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "enters",
+        "submits"
+      ],
+      "flow_steps": [
+        "Professor logs in",
+        "Professor opens gradebook for a course",
+        "Professor enters grades for students",
+        "Professor saves/posts grades"
+      ]
+    }
+  },
+  {
+    "user_story": "As a professor, I want to manage student attendance so that I can track participation.",
+    "groq_output": {
+      "actor": "Professor",
+      "class": "Attendance",
+      "methods": [
+        "manageAttendance",
+        "takeAttendance"
+      ],
+      "attributes": [
+        "studentId",
+        "date",
+        "status"
+      ],
+      "use_case": "Manage Student Attendance",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "records",
+        "updates"
+      ],
+      "flow_steps": [
+        "Professor opens attendance sheet for a class",
+        "Professor marks attendance for each student",
+        "System saves the record"
+      ]
+    }
+  },
+  {
+    "user_story": "As admin, I want to approve or reject course registrations so that enrollment rules are enforced.",
+    "groq_output": {
+      "actor": "Admin",
+      "class": "Registration",
+      "methods": [
+        "approveRegistration",
+        "rejectRegistration"
+      ],
+      "attributes": [
+        "registrationId",
+        "studentId",
+        "courseId",
+        "status"
+      ],
+      "use_case": "Approve/Reject Course Registrations",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "reviews",
+        "approves",
+        "rejects"
+      ],
+      "flow_steps": [
+        "Admin logs in",
+        "Admin views pending registrations",
+        "Admin reviews and approves/rejects each request"
+      ]
+    }
+  },
+  {
+    "user_story": "As admin, I want to add new users (students or faculty) to the system so that they can access services.",
+    "groq_output": {
+      "actor": "Admin",
+      "class": "User",
+      "methods": [
+        "addUser"
+      ],
+      "attributes": [
+        "name",
+        "email",
+        "role",
+        "userId"
+      ],
+      "use_case": "Add New Users",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "creates",
+        "inputs"
+      ],
+      "flow_steps": [
+        "Admin logs in",
+        "Admin navigates to User Management",
+        "Admin fills user details and creates account"
+      ]
+    }
+  },
+  {
+    "user_story": "As admin, I want to generate reports on course performance so that the university can evaluate success rates.",
+    "groq_output": {
+      "actor": "Admin",
+      "class": "Report",
+      "methods": [
+        "generateReport"
+      ],
+      "attributes": [
+        "reportType",
+        "filters"
+      ],
+      "use_case": "Generate Course Performance Reports",
+      "relationship": [
+        "generates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "generates",
+        "views"
+      ],
+      "flow_steps": [
+        "Admin logs in",
+        "Admin navigates to Reporting",
+        "Admin selects parameters for the report",
+        "System generates and displays the report"
+      ]
+    }
+  },
+  {
+    "user_story": "As admin, I want to manage academic calendars so that semester dates are correctly reflected.",
+    "groq_output": {
+      "actor": "Admin",
+      "class": "AcademicCalendar",
+      "methods": [
+        "manageCalendar",
+        "setDates"
+      ],
+      "attributes": [
+        "semester",
+        "startDate",
+        "endDate",
+        "registrationDeadline"
+      ],
+      "use_case": "Manage Academic Calendar",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "sets",
+        "updates"
+      ],
+      "flow_steps": [
+        "Admin logs in",
+        "Admin navigates to Calendar Management",
+        "Admin sets key dates for the semester"
+      ]
+    }
+  },
+  {
+    "user_story": "As admin, I want to manage system permissions so that users can only access appropriate features.",
+    "groq_output": {
+      "actor": "Admin",
+      "class": "Permission",
+      "methods": [
+        "managePermissions",
+        "assignRole"
+      ],
+      "attributes": [
+        "role",
+        "featureAccess"
+      ],
+      "use_case": "Manage System Permissions",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "assigns",
+        "revokes",
+        "updates"
+      ],
+      "flow_steps": [
+        "Admin logs in",
+        "Admin navigates to Role Management",
+        "Admin defines permissions for roles (e.g., Student, Professor)"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to create account using my email and password so that I can access the online appointment system.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Account",
+      "methods": [
+        "createAccount",
+        "register"
+      ],
+      "attributes": [
+        "email",
+        "password"
+      ],
+      "use_case": "Create Patient Account",
+      "relationship": [
+        "creates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "submits",
+        "provides"
+      ],
+      "flow_steps": [
+        "Patient provides email and password",
+        "Patient submits registration form",
+        "System creates Patient Account"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to log into the system securely so that I can view and manage my medical information.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Account",
+      "methods": [
+        "login"
+      ],
+      "attributes": [
+        "email",
+        "password"
+      ],
+      "use_case": "Login to System",
+      "relationship": [
+        "accesses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "provides",
+        "authenticates"
+      ],
+      "flow_steps": [
+        "Patient provides credentials",
+        "System authenticates securely",
+        "System grants access"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to update my profile with personal details like phone number, address, and date of birth so that doctors can have accurate information about me.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Profile",
+      "methods": [
+        "updateProfile"
+      ],
+      "attributes": [
+        "phoneNumber",
+        "address",
+        "dateOfBirth"
+      ],
+      "use_case": "Update Patient Profile",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "edits",
+        "saves"
+      ],
+      "flow_steps": [
+        "Patient navigates to Profile",
+        "Patient updates personal details",
+        "System saves the changes"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to search for doctors by name, specialization, or availability so that I can quickly find a suitable doctor.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Doctor",
+      "methods": [
+        "searchDoctors"
+      ],
+      "attributes": [
+        "name",
+        "specialization",
+        "availability"
+      ],
+      "use_case": "Search for Doctors",
+      "relationship": [
+        "searches"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "searches",
+        "filters"
+      ],
+      "flow_steps": [
+        "Patient navigates to doctor search",
+        "Patient enters search criteria",
+        "System displays matching doctors"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to view detailed profiles of doctors including their qualifications, experience, and patient ratings so that I can make informed decisions.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "DoctorProfile",
+      "methods": [
+        "viewProfile"
+      ],
+      "attributes": [
+        "qualifications",
+        "experience",
+        "patientRatings"
+      ],
+      "use_case": "View Doctor Profile",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "views"
+      ],
+      "flow_steps": [
+        "Patient searches for doctors",
+        "Patient selects a doctor from the list",
+        "System displays the doctor's detailed profile"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to view a doctor’s available time slots so that I can choose appointment that fits my schedule.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Schedule",
+      "methods": [
+        "viewAvailableSlots"
+      ],
+      "attributes": [
+        "timeSlot",
+        "date",
+        "doctorId"
+      ],
+      "use_case": "View Available Time Slots",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "views"
+      ],
+      "flow_steps": [
+        "Patient selects a doctor",
+        "System retrieves and displays the doctor's availability",
+        "Patient views the time slots"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to book appointment by selecting a doctor and a specific time slot so that I can visit the clinic without waiting.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Appointment",
+      "methods": [
+        "bookAppointment"
+      ],
+      "attributes": [
+        "doctorId",
+        "timeSlot",
+        "patientId"
+      ],
+      "use_case": "Book Appointment",
+      "relationship": [
+        "creates"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "confirms"
+      ],
+      "flow_steps": [
+        "Patient views available slots",
+        "Patient selects a time slot",
+        "Patient confirms booking",
+        "System creates the appointment"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to receive confirmation of my appointment by email and in the system dashboard so that I know my booking was successful.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Notification",
+      "methods": [
+        "receiveConfirmation"
+      ],
+      "attributes": [
+        "confirmationType",
+        "appointmentDetails"
+      ],
+      "use_case": "Receive Appointment Confirmation",
+      "relationship": [
+        "receives"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "receives",
+        "views"
+      ],
+      "flow_steps": [
+        "System books appointment",
+        "System sends confirmation email",
+        "System updates patient dashboard"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to cancel or reschedule appointment so that I can manage my plans flexibly.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Appointment",
+      "methods": [
+        "cancelAppointment",
+        "rescheduleAppointment"
+      ],
+      "attributes": [
+        "appointmentId",
+        "newTimeSlot"
+      ],
+      "use_case": "Cancel or Reschedule Appointment",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "cancels",
+        "reschedules"
+      ],
+      "flow_steps": [
+        "Patient views upcoming appointments",
+        "Patient selects 'Cancel' or 'Reschedule'",
+        "System updates appointment status"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to receive reminders before my appointment via email or SMS so that I don’t forget my scheduled visit.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Reminder",
+      "methods": [
+        "receiveReminder"
+      ],
+      "attributes": [
+        "reminderType",
+        "appointmentTime"
+      ],
+      "use_case": "Receive Appointment Reminder",
+      "relationship": [
+        "receives"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "receives"
+      ],
+      "flow_steps": [
+        "Appointment time approaches",
+        "System automatically sends a reminder",
+        "Patient receives email/SMS"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to view my past and upcoming appointments so that I can track my medical visits.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Appointment",
+      "methods": [
+        "viewAppointmentHistory"
+      ],
+      "attributes": [
+        "status",
+        "doctorName",
+        "date"
+      ],
+      "use_case": "View Appointment History",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "navigates",
+        "views"
+      ],
+      "flow_steps": [
+        "Patient logs in",
+        "Patient navigates to 'My Appointments'",
+        "System displays past and upcoming appointments"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to access and download my medical reports after a consultation so that I can keep a personal health record.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "MedicalReport",
+      "methods": [
+        "accessReport",
+        "downloadReport"
+      ],
+      "attributes": [
+        "reportFile",
+        "consultationDate",
+        "doctorId"
+      ],
+      "use_case": "Access Medical Reports",
+      "relationship": [
+        "accesses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "views",
+        "downloads"
+      ],
+      "flow_steps": [
+        "Patient logs in",
+        "Patient navigates to 'Medical Records'",
+        "Patient selects and downloads a report"
+      ]
+    }
+  },
+  {
+    "user_story": "As a patient, I want to communicate with my doctor via secure messages after the appointment so that I can clarify doubts about prescriptions.",
+    "groq_output": {
+      "actor": "Patient",
+      "class": "Message",
+      "methods": [
+        "sendMessage"
+      ],
+      "attributes": [
+        "doctorId",
+        "messageBody",
+        "subject"
+      ],
+      "use_case": "Send Secure Message to Doctor",
+      "relationship": [
+        "sends"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "composes",
+        "sends"
+      ],
+      "flow_steps": [
+        "Patient navigates to messaging",
+        "Patient selects doctor",
+        "Patient writes and sends secure message"
+      ]
+    }
+  },
+  {
+    "user_story": "As a doctor, I want to log into the system securely so that I can manage my appointments and patient records.",
+    "groq_output": {
+      "actor": "Doctor",
+      "class": "Account",
+      "methods": [
+        "login"
+      ],
+      "attributes": [
+        "email",
+        "password"
+      ],
+      "use_case": "Doctor Login",
+      "relationship": [
+        "accesses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "provides",
+        "authenticates"
+      ],
+      "flow_steps": [
+        "Doctor provides credentials",
+        "System authenticates securely",
+        "System grants access to doctor dashboard"
+      ]
+    }
+  },
+  {
+    "user_story": "As a doctor, I want to update my availability schedule so that patients can book appointments only during my working hours.",
+    "groq_output": {
+      "actor": "Doctor",
+      "class": "Schedule",
+      "methods": [
+        "updateAvailability"
+      ],
+      "attributes": [
+        "availableDates",
+        "availableTimeSlots",
+        "doctorId"
+      ],
+      "use_case": "Update Availability Schedule",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "sets",
+        "updates",
+        "blocks"
+      ],
+      "flow_steps": [
+        "Doctor logs in",
+        "Doctor navigates to 'My Schedule'",
+        "Doctor sets or blocks time slots",
+        "System updates availability"
+      ]
+    }
+  },
+  {
+    "user_story": "As a doctor, I want to view the list of appointments scheduled with me so that I can prepare for upcoming consultations.",
+    "groq_output": {
+      "actor": "Doctor",
+      "class": "Appointment",
+      "methods": [
+        "viewAppointments"
+      ],
+      "attributes": [
+        "patientName",
+        "time",
+        "date",
+        "status"
+      ],
+      "use_case": "View Scheduled Appointments",
+      "relationship": [
+        "views"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "views",
+        "reviews"
+      ],
+      "flow_steps": [
+        "Doctor logs in",
+        "Doctor views dashboard/calendar",
+        "System displays list of appointments"
+      ]
+    }
+  },
+  {
+    "user_story": "As a doctor, I want to access each patient’s medical history before a consultation so that I can provide better care.",
+    "groq_output": {
+      "actor": "Doctor",
+      "class": "MedicalHistory",
+      "methods": [
+        "accessMedicalHistory"
+      ],
+      "attributes": [
+        "patientId",
+        "pastReports",
+        "allergies",
+        "medications"
+      ],
+      "use_case": "Access Patient Medical History",
+      "relationship": [
+        "accesses"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "selects",
+        "reviews"
+      ],
+      "flow_steps": [
+        "Doctor opens an appointment",
+        "Doctor clicks on patient's name",
+        "System displays the patient's medical history"
+      ]
+    }
+  },
+  {
+    "user_story": "As a doctor, I want to upload prescriptions and medical reports after each appointment so that the patient can access them later.",
+    "groq_output": {
+      "actor": "Doctor",
+      "class": "MedicalReport",
+      "methods": [
+        "uploadReport",
+        "uploadPrescription"
+      ],
+      "attributes": [
+        "patientId",
+        "file",
+        "consultationId"
+      ],
+      "use_case": "Upload Patient Documents",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "uploads",
+        "saves"
+      ],
+      "flow_steps": [
+        "Doctor finishes consultation",
+        "Doctor navigates to patient record",
+        "Doctor uploads prescription/report file"
+      ]
+    }
+  },
+  {
+    "user_story": "As a doctor, I want to send follow-up instructions to patients so that treatment continues even after they leave the clinic.",
+    "groq_output": {
+      "actor": "Doctor",
+      "class": "Message",
+      "methods": [
+        "sendFollowUp"
+      ],
+      "attributes": [
+        "patientId",
+        "instructions",
+        "messageBody"
+      ],
+      "use_case": "Send Follow-up Instructions",
+      "relationship": [
+        "sends"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "composes",
+        "sends"
+      ],
+      "flow_steps": [
+        "Doctor accesses patient record",
+        "Doctor uses secure messaging",
+        "Doctor sends follow-up instructions"
+      ]
+    }
+  },
+  {
+    "user_story": "As a system admin, I want to manage all user accounts so that I can deactivate or reset access if necessary.",
+    "groq_output": {
+      "actor": "System Admin",
+      "class": "UserAccount",
+      "methods": [
+        "manageAccount",
+        "deactivateAccount",
+        "resetPassword"
+      ],
+      "attributes": [
+        "userId",
+        "accountStatus",
+        "role"
+      ],
+      "use_case": "Manage User Accounts",
+      "relationship": [
+        "manages"
+      ],
+      "visibility": [],
+      "multiplicity": {},
+      "interaction": [
+        "searches",
+        "deactivates",
+        "resets"
+      ],
+      "flow_steps": [
+        "Admin logs in",
+        "Admin navigates to User Management",
+        "Admin searches for a user",
+        "Admin deactivates account or resets password"
+      ]
+    }
+  }
+]
