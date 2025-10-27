@@ -1,56 +1,72 @@
+from PIL import Image, ImageDraw
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import login_user, logout_user, login_required, LoginManager
+from flask import send_from_directory
 import os
 import subprocess
 import json
-import pyodbc
 import spacy
 import re
 import time
 import logging
-from flask import Flask, render_template_string, request, redirect, url_for, flash, send_from_directory
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from PIL import Image, ImageDraw  # For placeholder images
+from flask import Flask, request, redirect, url_for, flash, render_template_string, jsonify
+from flask_cors import CORS
+from flask_login import current_user
+from sqlalchemy import text, create_engine
+from models import Base, User, Project
+from auth.authroutes import auth_bp
+from project.projectroutes import project_bp
+from persistence import PersistenceLayer, logger, engine
 
-# Initialize Flask app
+
+
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Secure random key for sessions
+app.secret_key = "your-very-secret-key-12345"
+CORS(app, 
+     resources={r"/*": {
+         "origins": ["http://localhost:3000"],
+         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True,
+         "max_age": 3600
+     }}
+)
 
-# Login Manager
+# Configure static directory
+app.config['STATIC_DIR'] = os.path.join(os.path.dirname(__file__), 'static')
+os.makedirs(app.config['STATIC_DIR'], exist_ok=True)
+
+# Configure logging - this must be done EARLY
+import sys
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout,
+    force=True
+)
+logger.setLevel(logging.DEBUG)
+logging.getLogger('werkzeug').setLevel(logging.DEBUG)
+logging.getLogger('flask_login').setLevel(logging.DEBUG)
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "login"
-
-# User class for Flask-Login
-class User(UserMixin):
-    def __init__(self, user_id):
-        self.id = user_id
 
 @login_manager.user_loader
 def load_user(user_id):
+    from models import User
     with PersistenceLayer() as persistence:
-        cursor = persistence.cursor
-        cursor.execute("SELECT UserID FROM Users WHERE UserID = ?", (user_id,))
-        user = cursor.fetchone()
-        return User(user[0]) if user else None
+        result = persistence.connection.execute(
+            text("SELECT userid, username, passwordhash FROM users WHERE userid = :uid"), {"uid": user_id}
+        ).mappings().first()
+        if result:
+            return User(result['userid'], result['username'], result['passwordhash'])
+        return None
 
-# Configuration
-DB_CONFIG = {
-    'driver': '{ODBC Driver 17 for SQL Server}',
-    'server': 'DESKTOP-56AJ0CQ',
-    'database': 'UML_Project_DB',
-    'trusted_connection': 'yes'
-}
+app.register_blueprint(auth_bp)
+app.register_blueprint(project_bp)
 
-DB_CONN_STR = (
-    f"DRIVER={DB_CONFIG['driver']};"
-    f"SERVER={DB_CONFIG['server']};"
-    f"DATABASE={DB_CONFIG['database']};"
-    f"Trusted_Connection={DB_CONFIG['trusted_connection']};"
-)
+# Sync models with database
+Base.metadata.create_all(engine)
 
-# Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Directories and Model
 PUML_DIR = "generated_puml"
@@ -71,337 +87,7 @@ else:
 if not os.path.exists(STATIC_DIR): os.makedirs(STATIC_DIR)
 if not os.path.exists(PUML_DIR): os.makedirs(PUML_DIR)
 
-# Templates
-HTML_DASHBOARD_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Project Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Project Dashboard</h1>
-            <div>
-                {% if current_user.is_authenticated %}
-                    <span class="badge bg-success me-2">Logged in as: {{ current_user.id }}</span>
-                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">Logout</a>
-                {% else %}
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#loginModal">Login</button>
-                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#registerModal">Register</button>
-                {% endif %}
-            </div>
-        </div>
-        
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        {% if not current_user.is_authenticated %}
-        <div class="alert alert-info">
-            <strong>Guest Mode:</strong> You can create new projects, but login to update or view owned projects.
-        </div>
-        {% endif %}
-        
-        <div class="card mb-4">
-            <div class="card-body">
-                <h2>Your Projects</h2>
-                {% if projects %}
-                    <ul class="list-group">
-                        {% for project in projects %}
-                            {% if not project['UserID'] or current_user.is_authenticated %}
-                            <li class="list-group-item">
-                                <a href="{{ url_for('view_project', project_id=project['ProjectID']) }}">
-                                    {{ project['ProjectName'] }} (ID: {{ project['ProjectID'] }}) {% if not current_user.is_authenticated and project['UserID'] %} (Owned by another user){% endif %}
-                                </a>
-                            </li>
-                            {% endif %}
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p>No projects found. Create one below.</p>
-                {% endif %}
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-body">
-                <h2>Create New Project</h2>
-                <form method="POST" action="{{ url_for('add_project') }}">
-                    <div class="mb-3">
-                        <input type="text" class="form-control" name="project_name" placeholder="Enter new project name" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Create Project</button>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <div class="modal fade" id="loginModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Login</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form method="POST" action="{{ url_for('login') }}">
-                        <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" name="username" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Login</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="modal fade" id="registerModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Register</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form method="POST" action="{{ url_for('register') }}">
-                        <div class="mb-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" class="form-control" name="username" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-control" name="password" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Confirm Password</label>
-                            <input type="password" class="form-control" name="confirm_password" required>
-                        </div>
-                        <button type="submit" class="btn btn-success">Register</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-"""
-
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>UML Generator</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container mt-5">
-        <a href="{{ url_for('index') }}" class="btn btn-secondary mb-3">&laquo; Back to Dashboard</a>
-        <h1>Automated UML Generator</h1>
-        <h2>Project: {{ project['ProjectName'] }} (ID: {{ project['ProjectID'] }})</h2>
-        
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="alert alert-danger">
-                    {{ messages[0] }}
-                </div>
-            {% endif %}
-        {% endwith %}
-        
-        {% if not current_user.is_authenticated and is_owner %}
-        <div class="alert alert-warning">
-            <strong>⚠️ Guest User Restriction:</strong> Login to update this project. Guests can only view or create new projects.
-        </div>
-        {% endif %}
-        
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h3>User Stories</h3>
-                        {% if current_user.is_authenticated or not is_owner %}
-                        <form method="POST" action="{{ url_for('update_project', project_id=project['ProjectID']) }}">
-                            <textarea name="user_stories" class="form-control" rows="10" placeholder="Enter user stories, one per line..." {{ 'disabled' if (not current_user.is_authenticated and is_owner) else '' }}>{{ stories_text }}</textarea>
-                            <select name="diagram_type" class="form-select mt-3" {{ 'disabled' if (not current_user.is_authenticated and is_owner) else '' }}>
-                                <option value="class">Class Diagram</option>
-                                <option value="use_case">Use Case Diagram</option>
-                                <option value="sequence">Sequence Diagram</option>
-                                <option value="activity">Activity Diagram</option>
-                            </select>
-                            <button type="submit" class="btn btn-primary mt-3" {{ 'disabled' if (not current_user.is_authenticated and is_owner) else '' }}>Generate / Update Diagram</button>
-                        </form>
-                        {% else %}
-                        <p class="text-warning">Login required to update this project.</p>
-                        <textarea class="form-control" rows="10" readonly>{{ stories_text }}</textarea>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h3>Generated Diagram</h3>
-                        {% if diagram_url %}
-                            <img src="{{ diagram_url }}" class="img-fluid border" alt="Generated UML Diagram">
-                        {% else %}
-                            <p class="text-muted">No diagram generated yet. Enter stories and click 'Generate'.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-# Persistence Layer
-class PersistenceLayer:
-    def __init__(self):
-        self.conn = pyodbc.connect(DB_CONN_STR)
-        self.cursor = self.conn.cursor()
-        logger.info("DB connection successful.")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def close(self):
-        try:
-            self.cursor.close()
-            self.conn.close()
-        except Exception as e:
-            logger.warning(f"DB close error: {e}. Ignoring.")
-
-    def get_all_projects(self):
-        try:
-            self.cursor.execute("SELECT ProjectID, ProjectName, UserID FROM Projects")
-            columns = [col[0] for col in self.cursor.description]
-            return [dict(zip(columns, row)) for row in self.cursor.fetchall()]
-        except pyodbc.Error as e:
-            logger.error(f"Get projects error: {e}")
-            return []
-
-    def get_project(self, project_id):
-        try:
-            self.cursor.execute("SELECT ProjectID, ProjectName, UserID FROM Projects WHERE ProjectID = ?", project_id)
-            columns = [col[0] for col in self.cursor.description]
-            row = self.cursor.fetchone()
-            return dict(zip(columns, row)) if row else None
-        except pyodbc.Error as e:
-            logger.error(f"Get project error: {e}")
-            return None
-
-    def create_project(self, project_name, user_id=None):
-        try:
-            self.cursor.execute("INSERT INTO Projects (ProjectName, UserID) OUTPUT INSERTED.ProjectID VALUES (?, ?)", (project_name, user_id))
-            project_id = self.cursor.fetchone()[0]
-            self.conn.commit()
-            return project_id
-        except pyodbc.Error as e:
-            self.conn.rollback()
-            logger.error(f"Create project error: {e}")
-            return None
-
-    def get_stories_as_text(self, project_id):
-        try:
-            self.cursor.execute("SELECT StoryText FROM UserStories WHERE ProjectID = ? ORDER BY StoryID", project_id)
-            return "\n".join(row[0] for row in self.cursor.fetchall())
-        except pyodbc.Error as e:
-            logger.error(f"Get stories text error: {e}")
-            return ""
-
-    def get_stories_list(self, project_id):
-        try:
-            self.cursor.execute("SELECT StoryID, ProjectID, StoryText FROM UserStories WHERE ProjectID = ? ORDER BY StoryID", project_id)
-            columns = [col[0] for col in self.cursor.description]
-            return [dict(zip(columns, row)) for row in self.cursor.fetchall()]
-        except pyodbc.Error as e:
-            logger.error(f"Get stories list error: {e}")
-            return []
-
-    def save_stories_from_text(self, project_id, stories_text):
-        try:
-            self.cursor.execute("DELETE FROM UserStories WHERE ProjectID = ?", project_id)
-            stories = [story.strip() for story in stories_text.split("\n") if story.strip()]
-            for story_text in stories:
-                self.cursor.execute("INSERT INTO UserStories (ProjectID, StoryText) VALUES (?, ?)", (project_id, story_text))
-            self.conn.commit()
-        except pyodbc.Error as e:
-            self.conn.rollback()
-            logger.error(f"Save stories error: {e}")
-
-    def delete_model_elements(self, project_id):
-        try:
-            self.cursor.execute("DELETE FROM ModelElements WHERE ProjectID = ?", project_id)
-            self.conn.commit()
-        except pyodbc.Error as e:
-            self.conn.rollback()
-            logger.error(f"Delete elements error: {e}")
-
-    def save_model_elements(self, project_id, elements):
-        try:
-            for el in elements:
-                source_id = el.get('source_id')
-                self.cursor.execute(
-                    "INSERT INTO ModelElements (ProjectID, ElementType, ElementData, SourceStoryID) VALUES (?, ?, ?, ?)",
-                    project_id, el['type'], json.dumps(el['data']), source_id
-                )
-            self.conn.commit()
-        except pyodbc.Error as e:
-            self.conn.rollback()
-            logger.error(f"Save elements error: {e}")
-
-    def get_model_elements(self, project_id):
-        try:
-            self.cursor.execute("SELECT ElementType, ElementData, SourceStoryID FROM ModelElements WHERE ProjectID = ?", project_id)
-            return [{'ElementType': row[0], 'ElementData': json.loads(row[1]), 'SourceStoryID': row[2]} for row in self.cursor.fetchall()]
-        except pyodbc.Error as e:
-            logger.error(f"Get elements error: {e}")
-            return []
-
-    def create_user(self, username, password_hash):
-        try:
-            self.cursor.execute("SELECT UserID FROM Users WHERE Username = ?", username)
-            if self.cursor.fetchone():
-                return None
-            self.cursor.execute("INSERT INTO Users (Username, PasswordHash) VALUES (?, ?)", username, password_hash)
-            self.conn.commit()
-            self.cursor.execute("SELECT UserID FROM Users WHERE Username = ?", username)
-            user_id = self.cursor.fetchone()[0]
-            return user_id
-        except pyodbc.Error as e:
-            self.conn.rollback()
-            logger.error(f"Create user error: {e}")
-            return None
-
-    def get_user_by_username(self, username):
-        try:
-            self.cursor.execute("SELECT UserID, Username, PasswordHash FROM Users WHERE Username = ?", username)
-            row = self.cursor.fetchone()
-            return {'UserID': row[0], 'Username': row[1], 'PasswordHash': row[2]} if row else None
-        except pyodbc.Error as e:
-            logger.error(f"Get user error: {e}")
-            return None
+from flask import render_template
 
 # NLP Engine
 class NLPEngine:
@@ -901,130 +587,16 @@ class DiagramGenerator:
 def index():
     with PersistenceLayer() as persistence:
         projects = [p for p in persistence.get_all_projects() if not p['UserID'] or current_user.is_authenticated]
-    return render_template_string(HTML_DASHBOARD_TEMPLATE, projects=projects, current_user=current_user)
+    return render_template("dashboard.html", projects=projects, current_user=current_user)
 
-@app.route("/register", methods=["POST"])
-def register():
-    username = request.form.get('username', '').strip()
-    password = request.form.get('password', '')
-    confirm_password = request.form.get('confirm_password', '')
-    
-    if not username or not password or password != confirm_password or len(password) < 6:
-        flash('Invalid registration details. Ensure passwords match and are at least 6 characters.', 'error')
-        return redirect(url_for('index'))
-    
-    with PersistenceLayer() as persistence:
-        password_hash = generate_password_hash(password)
-        user_id = persistence.create_user(username, password_hash)
-        if user_id:
-            user = User(user_id)
-            login_user(user)
-            flash('Registration successful! You are now logged in.', 'success')
-        else:
-            flash('Username already exists. Please choose a different username.', 'error')
-    
-    return redirect(url_for('index'))
-
-@app.route("/login", methods=["POST"])
-def login():
-    username = request.form.get('username', '').strip()
-    password = request.form.get('password', '')
-    
-    if not username or not password:
-        flash('Please enter both username and password.', 'error')
-        return redirect(url_for('index'))
-    
-    with PersistenceLayer() as persistence:
-        user = persistence.get_user_by_username(username)
-        if user and check_password_hash(user['PasswordHash'], password):
-            login_user(User(user['UserID']))
-            flash('Login successful!', 'success')
-        else:
-            flash('Invalid username or password.', 'error')
-    
-    return redirect(url_for('index'))
-
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('index'))
-
-@app.route("/project/new", methods=["POST"])
-def add_project():
-    project_name = request.form.get('project_name')
-    if not project_name:
-        flash('Project name is required.', 'error')
-        return redirect(url_for('index'))
-    
-    with PersistenceLayer() as persistence:
-        user_id = current_user.id if current_user.is_authenticated else None
-        project_id = persistence.create_project(project_name, user_id)
-        if project_id:
-            flash(f'Project "{project_name}" created with ID {project_id}.', 'success')
-        else:
-            flash('Error creating project. Please try again.', 'error')
-    
-    return redirect(url_for('view_project', project_id=project_id if project_id else 0))
-
-@app.route("/project/<int:project_id>")
-def view_project(project_id):
-    with PersistenceLayer() as persistence:
-        project = persistence.get_project(project_id)
-        if not project:
-            flash("Project not found.")
-            return redirect(url_for('index'))
-        
-        stories_text = persistence.get_stories_as_text(project_id)
-        is_owner = current_user.is_authenticated and project.get('UserID') == current_user.id
-    
-    diagram_type = request.args.get('diagram_type', 'class')
-    diagram_path = os.path.join(STATIC_DIR, f"{diagram_type}_{project_id}.png")
-    diagram_url = url_for('static', filename=f"{diagram_type}_{project_id}.png") + f"?t={time.time()}" if os.path.exists(diagram_path) else None
-    
-    return render_template_string(HTML_TEMPLATE, project=project, stories_text=stories_text, diagram_url=diagram_url, current_user=current_user, is_owner=is_owner)
-
-@app.route("/project/<int:project_id>/update", methods=["POST"])
-@login_required
-def update_project(project_id):
-    with PersistenceLayer() as persistence:
-        project = persistence.get_project(project_id)
-        if not project or (project.get('UserID') and project.get('UserID') != current_user.id):
-            flash("You don't have permission to update this project.", 'warning')
-            return redirect(url_for('view_project', project_id=project_id))
-        
-        stories_text = request.form.get('user_stories', '').strip()
-        if not stories_text:
-            flash("No stories provided. Add some to generate diagram.")
-            return redirect(url_for('view_project', project_id=project_id))
-        
-        diagram_type = request.form.get('diagram_type', 'class')
-        
-        persistence.save_stories_from_text(project_id, stories_text)
-        persistence.delete_model_elements(project_id)
-        
-        stories_list = persistence.get_stories_list(project_id)
-        if not stories_list:
-            flash("Failed to retrieve stories. Check input and try again.")
-            return redirect(url_for('view_project', project_id=project_id))
-        
-        nlp_engine = NLPEngine(nlp)
-        generator = DiagramGenerator()
-        new_model_elements = nlp_engine.extract_diagram_model(stories_list, diagram_type)
-        persistence.save_model_elements(project_id, new_model_elements)
-        generator.generate_diagram(project_id, diagram_type, new_model_elements)
-    
-    flash("Diagram updated successfully!", 'success')
-    return redirect(url_for('view_project', project_id=project_id, diagram_type=diagram_type))
-
-@app.route('/static/<path:filename>')
-def send_static_file(filename):
-    return send_from_directory(STATIC_DIR, filename)
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    """Serve static files (generated diagrams)."""
+    logger.debug(f"Serving static file: {filename}")
+    return send_from_directory(app.config['STATIC_DIR'], filename)
 
 # Main
 if __name__ == "__main__":
     from waitress import serve
-    print(f"Starting Production Server (Waitress) on http://127.0.0.1:5000...")
-    print(f"Connecting to DB with driver: {DB_CONFIG['driver']}")
-    serve(app, host='127.0.0.1', port=5000)
+    print(f"Starting Production Server (Waitress) on http://localhost:5000...")
+    serve(app, host='localhost', port=5000)

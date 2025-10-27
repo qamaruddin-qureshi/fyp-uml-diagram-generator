@@ -1,0 +1,266 @@
+# ============================================================================
+# Python Virtual Environments
+# ============================================================================
+vr/
+venv/
+ENV/
+env/
+.venv
+.ENV
+
+# ============================================================================
+# Python Byte-Compiled / Compiled Files
+# ============================================================================
+__pycache__/
+*.py[cod]
+*.py[cod]?
+*.pyo
+*.pyd
+*.so
+
+# ============================================================================
+# Python Distribution / Packaging
+# ============================================================================
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ============================================================================
+# Virtual Environment Site Packages
+# ============================================================================
+vr/Lib/
+vr/Scripts/
+site-packages/
+
+# ============================================================================
+# PyCharm / IDE Settings
+# ============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# ============================================================================
+# OS & System Files
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ============================================================================
+# Environment & Configuration (Sensitive Data)
+# ============================================================================
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+config.cfg
+*.pem
+*.key
+*.crt
+credentials.json
+secrets.json
+
+# ============================================================================
+# Database Files
+# ============================================================================
+*.sqlite
+*.sqlite3
+*.db
+database.db
+*.sql
+
+# ============================================================================
+# Logs & Temporary Files
+# ============================================================================
+*.log
+*.logs
+logs/
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.~*
+
+# ============================================================================
+# Jupyter Notebook
+# ============================================================================
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+*.notebook
+
+# ============================================================================
+# Machine Learning / NLP Model Files (Generated)
+# ============================================================================
+# SpaCy Models - These are large and should be regenerated locally
+*.spacy
+*.model
+my_uml_model/
+models/
+*.bin
+*.pkl
+*.joblib
+
+# ============================================================================
+# Generated Outputs & Temporary Diagrams
+# ============================================================================
+generated_puml/
+static/
+*.puml
+*.plantuml
+*.svg
+*.png
+*.jpg
+*.jpeg
+temp/
+tmp/
+cache/
+.cache
+
+# ============================================================================
+# Project-Specific Files
+# ============================================================================
+# Generated diagram files - recreate locally
+generated_puml/*.puml
+generated_puml/*.svg
+
+# Training data files - consider keeping or documenting separately
+# Uncomment if you want to ignore training data:
+# training_data.json
+# train_data.json
+# dev_data.json
+# train.spacy
+# dev.spacy
+
+# Generated reports (uncomment if applicable)
+# reports/
+# *.html
+
+# ============================================================================
+# Node/NPM (Frontend - Next.js)
+# ============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.next/
+out/
+.swc/
+dist/
+*.tsbuildinfo
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ============================================================================
+# Build & Compilation Artifacts
+# ============================================================================
+*.o
+*.a
+*.lib
+*.dylib
+*.dll
+*.exe
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ============================================================================
+# Misc Temporary & Backup Files
+# ============================================================================
+*.orig
+*.rej
+.~lock.*
+.AppleDouble
+.LSOverride
+
+# ============================================================================
+# Docker (if applicable)
+# ============================================================================
+# Docker build artifacts (optional)
+# .dockerignore is separate
+
+# ============================================================================
+# Archive Files
+# ============================================================================
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ============================================================================
+# Testing & Coverage
+# ============================================================================
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ============================================================================
+# Project-Specific Generated Files
+# ============================================================================
+# Diagram generation artifacts (recreate by running generate.py)
+generated_puml/
+static/
+
+# Frontend build output
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# Python cache in all directories
+**/__pycache__/
+**/*.pyc
+
+# VSCode local workspace settings (user-specific)
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# PlantUML output files (temporary)
+*.png
+*.jpg
+*.jpeg
+*.svg
