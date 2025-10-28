@@ -4,6 +4,7 @@ from .projectcontroller import (
     create_project,
     get_project,
     update_project_logic,
+    download_diagram_as_pdf,
 )
 import logging
 
@@ -132,8 +133,36 @@ def update_project(project_id):
         return jsonify({'success': False, 'message': 'Error updating project'}), 500
     return result
 
+@project_bp.route('/project/<project_id>/download/<diagram_type>', methods=['GET'])
+@login_required
+def download_project_diagram(project_id, diagram_type):
+    """Download diagram as PDF."""
+    logger.info(f"PDF download request received for project_id: {project_id}, diagram_type: {diagram_type}")
+    
+    # Validate UUID format (must be valid UUID v4 format)
+    import re
+    uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    if not project_id or not re.match(uuid_pattern, project_id, re.IGNORECASE):
+        msg = 'Invalid project ID format.'
+        logger.warning(f"Invalid project ID: {project_id}")
+        return jsonify({'success': False, 'message': msg}), 400
+    
+    # Validate diagram type
+    valid_types = ['class', 'use_case', 'sequence', 'activity']
+    if diagram_type not in valid_types:
+        msg = f'Invalid diagram type. Must be one of: {", ".join(valid_types)}'
+        logger.warning(f"Invalid diagram type: {diagram_type}")
+        return jsonify({'success': False, 'message': msg}), 400
+    
+    logger.info(f"Attempting to download diagram for project {project_id}")
+    result = download_diagram_as_pdf(project_id, diagram_type, current_user)
+    
+    # result can be either a tuple (response, status_code) or a send_file response
+    return result
+
 @project_bp.route('/static/<path:filename>')
 def send_static_file(filename):
     """Serve static files (CSS, images, etc.)."""
     logger.debug(f"Serving static file: {filename}")
     return send_from_directory(current_app.config['STATIC_DIR'], filename)
+

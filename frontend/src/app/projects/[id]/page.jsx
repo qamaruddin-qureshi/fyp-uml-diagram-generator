@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { projectAPI } from '@/lib/api'
 import { useProjectStore } from '@/store/projects'
 import toast, { Toaster } from 'react-hot-toast'
-import { Zap, ArrowLeft } from 'lucide-react'
+import { Zap, ArrowLeft, Download } from 'lucide-react'
 
 const DIAGRAM_TYPES = [
   { value: 'class', label: '📊 Class Diagram' },
@@ -41,17 +41,20 @@ export default function ProjectPage() {
         setCurrentProject(data)
         setStories(data.stories_text || '')
         
+        // Get backend URL
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+        
         // Restore diagram type from localStorage
         const savedDiagramType = localStorage.getItem(`diagram_type_${params.id}`)
         if (savedDiagramType) {
           setDiagramType(savedDiagramType)
           // Build diagram URL with saved diagram type
           const timestamp = new Date().getTime()
-          setDiagramUrl(`/static/${savedDiagramType}_${data.ProjectID}.png?t=${timestamp}`)
+          setDiagramUrl(`${backendUrl}/static/${savedDiagramType}_${data.ProjectID}.png?t=${timestamp}`)
         } else {
           // Build diagram URL with default diagram type
           const timestamp = new Date().getTime()
-          setDiagramUrl(`/static/class_${data.ProjectID}.png?t=${timestamp}`)
+          setDiagramUrl(`${backendUrl}/static/class_${data.ProjectID}.png?t=${timestamp}`)
         }
       } catch (error) {
         toast.error('Failed to load project')
@@ -74,8 +77,9 @@ export default function ProjectPage() {
     
     // Update diagram URL
     if (project?.ProjectID) {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
       const timestamp = new Date().getTime()
-      setDiagramUrl(`/static/${newType}_${project.ProjectID}.png?t=${timestamp}`)
+      setDiagramUrl(`${backendUrl}/static/${newType}_${project.ProjectID}.png?t=${timestamp}`)
     }
   }
 
@@ -98,8 +102,9 @@ export default function ProjectPage() {
         toast.success('Diagram updated successfully!')
         
         // Update diagram URL with new timestamp to force refresh
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
         const timestamp = new Date().getTime()
-        setDiagramUrl(`/static/${diagramType}_${params.id}.png?t=${timestamp}`)
+        setDiagramUrl(`${backendUrl}/static/${diagramType}_${params.id}.png?t=${timestamp}`)
       } else {
         toast.error(response.message || 'Failed to update project')
       }
@@ -108,6 +113,68 @@ export default function ProjectPage() {
       console.error(error)
     } finally {
       setIsUpdating(false)
+    }
+  }
+
+  const handleDownloadPDF = async () => {
+    try {
+      if (!diagramUrl) {
+        toast.error('No diagram available to download. Generate one first.')
+        return
+      }
+
+      const loadingToast = toast.loading('Generating PDF...')
+      
+      // Get the backend URL from the API client config
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+      
+      // Call the backend API to download PDF with credentials
+      const response = await fetch(`${backendUrl}/project/${params.id}/download/${diagramType}`, {
+        method: 'GET',
+        credentials: 'include',  // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        toast.dismiss(loadingToast)
+        try {
+          const error = await response.json()
+          toast.error(error.message || `Failed to download PDF (HTTP ${response.status})`)
+        } catch {
+          toast.error(`Failed to download PDF (HTTP ${response.status})`)
+        }
+        return
+      }
+
+      // Get the filename from Content-Disposition header if available
+      const contentDisposition = response.headers.get('content-disposition')
+      let filename = `diagram_${diagramType}.pdf`
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+
+      // Create a blob and download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingToast)
+      toast.success('PDF downloaded successfully!')
+    } catch (error) {
+      toast.error(error.message || 'Failed to download PDF')
+      console.error('Download error:', error)
     }
   }
 
@@ -205,7 +272,19 @@ export default function ProjectPage() {
 
             {/* Right Column - Diagram */}
             <div className="bg-primary border-2 border-border-color rounded-lg p-8">
-              <h2 className="text-2xl font-bold text-black mb-6">Generated Diagram</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-black">Generated Diagram</h2>
+                {diagramUrl && (
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="flex items-center gap-2 bg-accent text-white font-bold py-2 px-4 rounded-lg border-2 border-accent hover:bg-background hover:text-accent transition text-sm"
+                    title="Download diagram as PDF"
+                  >
+                    <Download size={18} strokeWidth={2} />
+                    Download PDF
+                  </button>
+                )}
+              </div>
 
               <div className="bg-white border-2 border-border-color rounded-lg overflow-hidden flex items-center justify-center min-h-96">
                 {diagramUrl ? (

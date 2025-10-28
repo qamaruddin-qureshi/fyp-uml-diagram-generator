@@ -1,9 +1,14 @@
 from flask import render_template, jsonify
-from flask import redirect, url_for, flash, render_template_string, current_app
+from flask import redirect, url_for, flash, render_template_string, current_app, send_file
 from persistence import PersistenceLayer
 from models import User
 from uml_utils import nlp, NLPEngine, DiagramGenerator
 import os, time, logging
+from io import BytesIO
+from PIL import Image
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.units import inch
 
 logger = logging.getLogger(__name__)
 
@@ -229,3 +234,116 @@ def update_project_logic(request, current_user, project_id, is_json=False):
             return {'success': False, 'message': f'Error updating project: {str(e)}'}
         flash(f'Error updating project: {str(e)}', 'error')
         return redirect(url_for('project.view_project', project_id=project_id))
+
+def download_diagram_as_pdf(project_id, diagram_type, current_user):
+    """Download generated diagram as PDF.
+    Args:
+        project_id: Project ID
+        diagram_type: Type of diagram (class, use_case, sequence, activity)
+        current_user: Current user object
+    Returns:
+        PDF file response or error response
+    """
+    try:
+        # Verify project access
+        with PersistenceLayer() as persistence:
+            project = persistence.get_project(project_id)
+            if not project:
+                logger.warning(f"Project {project_id} not found")
+                return (jsonify({'success': False, 'message': f"Project {project_id} not found."}), 404)
+            
+            # Check permission
+            if project.get('UserID') and project.get('UserID') != current_user.id:
+                logger.warning(f"Permission denied for user {current_user.id} to download project {project_id}")
+                return (jsonify({'success': False, 'message': "You don't have permission to download this project."}), 403)
+        
+        # Check if diagram image exists
+        diagram_image_path = os.path.join(current_app.config['STATIC_DIR'], f"{diagram_type}_{project_id}.png")
+        logger.info(f"[download_diagram_as_pdf] Looking for diagram at: {diagram_image_path}")
+        
+        if not os.path.exists(diagram_image_path):
+            logger.warning(f"Diagram image not found at: {diagram_image_path}")
+            return (jsonify({'success': False, 'message': f"No {diagram_type} diagram found for this project. Please generate one first."}), 404)
+        
+        logger.info(f"[download_diagram_as_pdf] Found diagram image: {diagram_image_path}")
+        
+        # Create PDF with the diagram image
+        pdf_buffer = BytesIO()
+        
+        try:
+            # Open the PNG image
+            img = Image.open(diagram_image_path)
+            img_width, img_height = img.size
+            logger.info(f"[download_diagram_as_pdf] Image dimensions: {img_width}x{img_height}")
+            
+            # Create PDF
+            pdf_canvas = canvas.Canvas(pdf_buffer, pagesize=letter)
+            page_width, page_height = letter
+            
+            # Calculate scaling to fit the image on the page with margins
+            margin = 0.5 * inch
+            available_width = page_width - (2 * margin)
+            available_height = page_height - (2 * margin)
+            
+            # Calculate scale to fit image
+            scale_x = available_width / img_width if img_width > 0 else 1
+            scale_y = available_height / img_height if img_height > 0 else 1
+            scale = min(scale_x, scale_y, 1.0)  # Don't upscale
+            
+            new_width = img_width * scale
+            new_height = img_height * scale
+            
+            # Center the image on the page
+            x_pos = (page_width - new_width) / 2
+            y_pos = (page_height - new_height) / 2
+            
+            # Add title
+            pdf_canvas.setFont("Helvetica-Bold", 14)
+            pdf_canvas.drawString(margin, page_height - margin, f"Project: {project.get('ProjectName', 'Untitled')}")
+            
+            # Add diagram type label
+            pdf_canvas.setFont("Helvetica", 10)
+            pdf_canvas.drawString(margin, page_height - margin - 20, f"Diagram Type: {diagram_type.replace('_', ' ').title()}")
+            
+            # Add the image
+            pdf_canvas.drawImage(
+                diagram_image_path,
+                x_pos,
+                y_pos,
+                width=new_width,
+                height=new_height,
+                preserveAspectRatio=True
+            )
+            
+            # Add footer with timestamp
+            pdf_canvas.setFont("Helvetica", 8)
+            pdf_canvas.drawString(margin, margin - 10, f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            pdf_canvas.save()
+            logger.info(f"[download_diagram_as_pdf] PDF created successfully")
+            
+        except Exception as e:
+            logger.error(f"Error creating PDF from image: {e}", exc_info=True)
+            return (jsonify({'success': False, 'message': f"Error creating PDF: {str(e)}"}), 500)
+        
+        # Prepare file for download
+        pdf_buffer.seek(0)
+        
+        filename = f"{project.get('ProjectName', 'diagram')}_{diagram_type}_{int(time.time())}.pdf"
+        # Clean filename
+        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '_', '-', '.')).rstrip()
+        filename = filename.replace(' ', '_')
+        
+        logger.info(f"[download_diagram_as_pdf] Generating PDF for project {project_id}, diagram type: {diagram_type}, filename: {filename}")
+        
+        return send_file(
+            pdf_buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    
+    except Exception as e:
+        logger.error(f"Exception downloading diagram as PDF for {project_id}: {e}", exc_info=True)
+        return (jsonify({'success': False, 'message': f'Error downloading diagram: {str(e)}'}), 500)
+
