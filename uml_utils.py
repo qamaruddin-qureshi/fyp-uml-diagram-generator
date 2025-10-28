@@ -212,15 +212,30 @@ class NLPEngine:
                     pass
             
             if 'groq_output' in data and 'use_case' in data['groq_output']:
+                # Add actor as a Class with stereotype
+                if 'actor' in data['groq_output']:
+                    self._add_class(data['groq_output']['actor'], stereotype="actor", source_id=story_id)
+                
+                # Add use case
                 self.model_elements.append({
                     'type': 'UseCase',
                     'data': {'name': data['groq_output']['use_case']},
                     'source_id': story_id
                 })
+                
                 if 'actor' in data['groq_output']:
                     self._add_relationship(data['groq_output']['actor'], data['groq_output']['use_case'], "-->", source_id=story_id)
             else:
                 doc = self.nlp(text)
+                
+                # Extract actors first
+                actors = []
+                for ent in doc.ents:
+                    if ent.label_ == "ACTOR":
+                        actors.append(ent.text)
+                        self._add_class(ent.text, stereotype="actor", source_id=story_id)
+                
+                # Extract use case from text pattern
                 match = re.search(r"I want to (\w+\s*\w*)", text)
                 if match:
                     use_case_name = match.group(1).replace(" ", "")
@@ -229,9 +244,10 @@ class NLPEngine:
                         'data': {'name': use_case_name},
                         'source_id': story_id
                     })
-                    for ent in doc.ents:
-                        if ent.label_ == "ACTOR":
-                            self._add_relationship(ent.text, use_case_name, "-->", source_id=story_id)
+                    
+                    # Link actors to use case
+                    for actor in actors:
+                        self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
         except Exception as e:
             logger.error(f"Use case extraction error for story {story_id}: {e}")
 
@@ -418,20 +434,26 @@ class DiagramGenerator:
 
         puml_code = ["@startuml"]
         
-        use_cases = [el for el in elements if el['type'] == 'UseCase']
+        # Extract actors from Class elements with stereotype="actor"
         actors = set()
         for el in elements:
-            if el['type'] == 'Relationship':
-                actors.add(el['data']['class_a'])
-
-        for actor in actors:
+            if el['type'] == 'Class' and el['data'].get('stereotype') == 'actor':
+                actors.add(el['data']['name'])
+        
+        # Extract use cases
+        use_cases = [el for el in elements if el['type'] == 'UseCase']
+        
+        # Add actors to PlantUML
+        for actor in sorted(actors):
             puml_code.append(f"actor {actor}")
 
+        # Add use cases to PlantUML
         for uc in use_cases:
             name = uc['data']['name']
             alias = self._format_class_name(name)
             puml_code.append(f"usecase \"{name}\" as {alias}")
 
+        # Add relationships (Actor --> UseCase)
         for el in [el for el in elements if el['type'] == 'Relationship']:
             data = el['data']
             class_a_alias = self._format_class_name(data['class_a'])

@@ -171,11 +171,18 @@ def update_project_logic(request, current_user, project_id, is_json=False):
                 flash(msg)
                 return redirect(url_for('project.view_project', project_id=project_id))
             
-            # Save stories and process
-            user_id = current_user.id if hasattr(current_user, 'id') else (current_user.get_id() if hasattr(current_user, 'get_id') else None)
-            persistence.save_stories_from_text(project_id, stories_text, user_id)
+            # Delete model elements FIRST (they reference stories via foreign key)
+            logger.info(f"[update_project_logic] Deleting old model elements")
             persistence.delete_model_elements(project_id)
+            
+            # Now safe to save new stories (this deletes old stories first)
+            user_id = current_user.id if hasattr(current_user, 'id') else (current_user.get_id() if hasattr(current_user, 'get_id') else None)
+            logger.info(f"[update_project_logic] Saving stories for project {project_id}")
+            persistence.save_stories_from_text(project_id, stories_text, user_id)
+            
+            logger.info(f"[update_project_logic] Retrieving saved stories")
             stories_list = persistence.get_stories_list(project_id)
+            logger.info(f"[update_project_logic] Retrieved {len(stories_list)} stories")
             
             if not stories_list:
                 msg = "Failed to retrieve stories. Check input and try again."
@@ -185,12 +192,25 @@ def update_project_logic(request, current_user, project_id, is_json=False):
                 flash(msg)
                 return redirect(url_for('project.view_project', project_id=project_id))
             
+            # Log first story for debugging
+            if stories_list:
+                logger.debug(f"[update_project_logic] First story: {stories_list[0]}")
+            
             # Generate diagram
+            logger.info(f"[update_project_logic] Creating NLP engine and generator")
             nlp_engine = NLPEngine(nlp)
             generator = DiagramGenerator()
+            
+            logger.info(f"[update_project_logic] Extracting diagram model with type '{diagram_type}'")
             new_model_elements = nlp_engine.extract_diagram_model(stories_list, diagram_type)
+            logger.info(f"[update_project_logic] Extracted {len(new_model_elements)} model elements")
+            
+            logger.info(f"[update_project_logic] Saving model elements")
             persistence.save_model_elements(project_id, new_model_elements)
+            
+            logger.info(f"[update_project_logic] Generating diagram")
             generator.generate_diagram(project_id, diagram_type, new_model_elements)
+            logger.info(f"[update_project_logic] Diagram generation complete")
         
         msg = "Diagram updated successfully!"
         logger.info(f"{msg} Project: {project_id}, Diagram type: {diagram_type}")
