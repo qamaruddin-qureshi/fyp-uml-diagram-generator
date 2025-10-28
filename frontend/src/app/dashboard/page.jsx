@@ -66,7 +66,6 @@ export default function DashboardPage() {
         addProject(newProject)
         setNewProjectName('')
         toast.success('Project created successfully!')
-        router.push(`/projects/${response.project_id}`)
       } else {
         toast.error(response.message || 'Failed to create project')
       }

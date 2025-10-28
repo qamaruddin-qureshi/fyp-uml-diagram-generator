@@ -152,18 +152,51 @@ class NLPEngine:
                     recent_class = class_name or actor_name
                     self._add_attribute(recent_class, attr, story_id)
 
-            if not data.get('groq_output') or not actor_name:
+            # Process Spacy entities if no Groq data
+            if not data.get('groq_output'):
                 doc = self.nlp(text)
-                for i, ent in enumerate(doc.ents):
-                    ent_text = ent.text.lower()
-                    if ent.label_ == "METHOD":
-                        self._add_method(actor_name or "Actor", ent_text, story_id)
-                    elif ent.label_ == "ATTRIBUTE" or any(pat in ent_text for pat in self.attribute_patterns):
-                        recent_class = actor_name or "Class"
-                        self._add_attribute(recent_class, ent_text, story_id)
+                
+                # First pass: collect all entities by type
+                actors = []
+                classes = []
+                methods = []
+                attributes = []
+                
+                for ent in doc.ents:
+                    if ent.label_ == "ACTOR":
+                        actors.append(ent.text)
                     elif ent.label_ == "CLASS":
-                        class_name = ent.text
-                        self._add_class(class_name, source_id=story_id)
+                        classes.append(ent.text)
+                    elif ent.label_ == "METHOD":
+                        methods.append(ent.text)
+                    elif ent.label_ == "ATTRIBUTE":
+                        attributes.append(ent.text)
+                
+                logger.debug(f"  Found: {len(actors)} actors, {len(classes)} classes, {len(methods)} methods, {len(attributes)} attributes")
+                
+                # Determine primary actor and class
+                primary_actor = actors[0] if actors else None
+                primary_class = classes[0] if classes else None
+                
+                # Add methods to actor if found
+                if primary_actor and methods:
+                    for method in methods:
+                        logger.debug(f"  Adding method '{method}' to actor '{primary_actor}'")
+                        self._add_method(primary_actor, method, story_id)
+                
+                # Add attributes to class (or actor if no class)
+                if attributes:
+                    target_class = primary_class or primary_actor
+                    if target_class:
+                        for attr in attributes:
+                            logger.debug(f"  Adding attribute '{attr}' to class '{target_class}'")
+                            self._add_attribute(target_class, attr, story_id)
+                
+                # Add relationship if both actor and class exist
+                if primary_actor and primary_class:
+                    logger.debug(f"  Adding relationship: {primary_actor} --> {primary_class}")
+                    self._add_relationship(primary_actor, primary_class, "-->", source_id=story_id)
+                    
         except Exception as e:
             logger.error(f"Pass 2 error for story {story_id}: {e}")
 
