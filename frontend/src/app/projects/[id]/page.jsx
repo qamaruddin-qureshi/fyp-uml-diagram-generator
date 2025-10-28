@@ -57,9 +57,15 @@ export default function ProjectPage() {
           setDiagramUrl(`${backendUrl}/static/class_${data.ProjectID}.png?t=${timestamp}`)
         }
       } catch (error) {
-        toast.error('Failed to load project')
-        console.error(error)
-        router.push('/dashboard')
+        console.error('Error loading project:', error)
+        // Only redirect if it's a 401 or authentication error
+        if (error?.response?.status === 401 || error?.status === 401) {
+          toast.error('Your session has expired. Please log in again.')
+          // Let the API client handle the redirect
+        } else {
+          toast.error('Failed to load project. Please try again.')
+          console.error('Project loading error details:', error)
+        }
       } finally {
         setIsLoading(false)
       }

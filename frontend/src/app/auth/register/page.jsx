@@ -45,10 +45,9 @@ export default function RegisterPage() {
       const response = await authAPI.register(formData.username, formData.password, formData.confirmPassword)
       
       if (response.success) {
-        setToken(response.token || 'token')
-        setUser({ username: formData.username, id: response.user_id })
-        toast.success('Registration successful!')
-        router.push('/')
+        toast.success('Registration successful! Please log in.')
+        // Redirect to login after successful registration
+        router.push('/auth/login')
       } else {
         toast.error(response.message || 'Registration failed')
       }

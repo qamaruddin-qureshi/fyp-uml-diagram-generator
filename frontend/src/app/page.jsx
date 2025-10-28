@@ -2,17 +2,23 @@
 
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function Home() {
   const router = useRouter()
   const { isAuthenticated } = useAuthStore()
+  const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated) {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    // Only redirect after client-side hydration is complete
+    if (isClient && isAuthenticated) {
       router.push('/dashboard')
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, isClient])
 
   return (
     <div className="min-h-screen bg-background">
