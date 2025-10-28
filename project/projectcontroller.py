@@ -100,17 +100,17 @@ def get_project(request, current_user, project_id, is_json=False):
         diagram_path = os.path.join(current_app.config['STATIC_DIR'], f"{diagram_type}_{project_id}.png")
         diagram_url = url_for('static', filename=f"{diagram_type}_{project_id}.png") + f"?t={time.time()}" if os.path.exists(diagram_path) else None
         
-        if is_json:
-            return {
-                'success': True,
-                'project': project,
-                'stories_text': stories_text,
-                'diagram_url': diagram_url,
-                'is_owner': is_owner,
-                'diagram_type': diagram_type
-            }
-        
-        return render_template("project.html", project=project, stories_text=stories_text, diagram_url=diagram_url, current_user=current_user, is_owner=is_owner)
+        # Always return JSON for API requests
+        return jsonify({
+            'success': True,
+            'ProjectID': project['ProjectID'],
+            'ProjectName': project['ProjectName'],
+            'UserID': project.get('UserID'),
+            'stories_text': stories_text,
+            'diagram_url': diagram_url,
+            'is_owner': is_owner,
+            'diagram_type': diagram_type
+        }), 200
     
     except Exception as e:
         logger.error(f"Exception getting project {project_id}: {e}")

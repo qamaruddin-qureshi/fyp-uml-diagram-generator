@@ -585,9 +585,17 @@ class DiagramGenerator:
 # Routes
 @app.route("/")
 def index():
-    with PersistenceLayer() as persistence:
-        projects = [p for p in persistence.get_all_projects() if not p['UserID'] or current_user.is_authenticated]
-    return render_template("dashboard.html", projects=projects, current_user=current_user)
+    """API health check endpoint"""
+    return jsonify({
+        'success': True,
+        'message': 'UML Diagram Generator API',
+        'version': '1.0',
+        'endpoints': {
+            'auth': '/auth/register, /auth/login, /auth/logout',
+            'projects': '/projects, /project/new, /project/<id>, /project/<id>/update',
+            'static': '/static/<filename>'
+        }
+    }), 200
 
 @app.route("/static/<path:filename>")
 def serve_static(filename):

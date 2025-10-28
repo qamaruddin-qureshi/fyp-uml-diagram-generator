@@ -88,21 +88,12 @@ def view_project(project_id):
     if not project_id or not re.match(uuid_pattern, project_id, re.IGNORECASE):
         msg = 'Invalid project ID format.'
         logger.warning(f"Invalid project ID: {project_id}")
-        if request.is_json:
-            return jsonify({'success': False, 'message': msg}), 400
-        flash(msg, 'error')
-        return redirect(url_for('index'))
+        return jsonify({'success': False, 'message': msg}), 400
     
     logger.info(f"Retrieving project with ID: {project_id}")
-    result = get_project(request, current_user, project_id, is_json=request.is_json)
+    result = get_project(request, current_user, project_id, is_json=True)
     
-    if request.is_json:
-        if isinstance(result, dict):
-            if result.get('success'):
-                return jsonify({'success': True, 'data': result}), 200
-            else:
-                return jsonify({'success': False, 'message': result.get('message')}), 404
-        return jsonify({'success': False, 'message': 'Error retrieving project'}), 500
+    # Result is already a tuple (response, status_code) from the controller
     return result
 
 @project_bp.route('/project/<project_id>/update', methods=['POST'])
