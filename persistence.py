@@ -6,11 +6,12 @@ import logging
 import os
 
 # --- SQLAlchemy PostgreSQL Setup ---
-POSTGRES_USER = os.environ.get('DB_USER', 'docker')
-POSTGRES_PASSWORD = os.environ.get('DB_PASSWORD', 'docker')
-POSTGRES_DB = os.environ.get('DB_NAME', 'postgres')
-POSTGRES_HOST = os.environ.get('DB_HOST', 'localhost')
-POSTGRES_PORT = os.environ.get('DB_PORT', '5432')
+# Use 'or' to handle empty strings as well as None
+POSTGRES_USER = os.environ.get('DB_USER') or 'docker'
+POSTGRES_PASSWORD = os.environ.get('DB_PASSWORD') or 'docker'
+POSTGRES_DB = os.environ.get('DB_NAME') or 'postgres'
+POSTGRES_HOST = os.environ.get('DB_HOST') or 'localhost'
+POSTGRES_PORT = os.environ.get('DB_PORT') or '5432'
 
 SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
