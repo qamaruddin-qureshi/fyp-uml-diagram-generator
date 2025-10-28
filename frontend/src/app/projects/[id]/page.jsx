@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { projectAPI } from '@/lib/api'
 import { useProjectStore } from '@/store/projects'
 import toast, { Toaster } from 'react-hot-toast'
@@ -209,11 +210,14 @@ export default function ProjectPage() {
 
               <div className="bg-primary rounded-md overflow-hidden flex items-center justify-center min-h-96">
                 {diagramUrl ? (
-                  <div className="w-full">
-                    <img
+                  <div className="w-full relative">
+                    <Image
                       src={diagramUrl}
                       alt="Generated UML Diagram"
+                      width={800}
+                      height={600}
                       className="w-full h-auto"
+                      unoptimized
                       onError={() => {
                         setDiagramUrl(null)
                       }}
