@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Light Theme Colors */
+  --color-primary: #ffffff;      /* White */
+  --color-accent: #001f3f;       /* Navy Blue */
+  --color-background: #f0f4f8;   /* Light Background */
+  --color-card: #ffffff;         /* White */
+  --color-text: #000000;         /* Black */
+  --color-muted-text: #666666;   /* Muted text */
+  --color-border: #001f3f;       /* Navy Blue */
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -10,19 +21,84 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 16px;
 }
 
 body {
-  background-color: #0f172a;
-  color: #e2e8f0;
+  background-color: #f0f4f8;
+  color: #000000;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* Typography optimizations */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+h1 {
+  font-size: 28px;
+  color: #000000;
+}
+
+h2 {
+  font-size: 24px;
+  color: #000000;
+}
+
+h3 {
+  font-size: 20px;
+  color: #000000;
+}
+
+p, span, div {
+  font-weight: 600;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: #000000;
+}
+
+/* Remove any gradients - use solid colors only */
+@layer components {
+  .bg-gradient-to-r,
+  .bg-gradient-to-l,
+  .bg-gradient-to-b,
+  .bg-gradient-to-t {
+    background-image: none !important;
+    background-color: var(--color-primary) !important;
+  }
+}
+
+/* High contrast text utility */
+@layer utilities {
+  .text-high-contrast {
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .bg-card-solid {
+    background-color: #1a1f2e;
+    border: 2px solid #2a3142;
+  }
+
+  .border-visible {
+    border: 2px solid #2a3142;
+  }
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+  font-size: 16px;
 }

@@ -92,31 +92,31 @@ export default function DashboardPage() {
   return (
     <>
       <Toaster />
-      <div className="min-h-screen bg-primary py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-12">
-            <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-            <p className="text-slate-400">Create and manage your UML diagram projects</p>
+            <h1 className="text-4xl font-bold text-black mb-2">Dashboard</h1>
+            <p className="text-lg text-muted-text">Create and manage your UML diagram projects</p>
           </div>
 
           {/* Create Project Form */}
-          <div className="bg-secondary rounded-lg shadow-lg p-8 mb-12">
-            <h2 className="text-2xl font-bold text-white mb-6">Create New Project</h2>
-            <form onSubmit={handleCreateProject} className="flex gap-4">
+          <div className="bg-primary border-2 border-border-color rounded-lg p-8 mb-12">
+            <h2 className="text-2xl font-bold text-black mb-6">Create New Project</h2>
+            <form onSubmit={handleCreateProject} className="flex gap-4 flex-col sm:flex-row">
               <input
                 type="text"
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
                 placeholder="Enter project name"
-                className="flex-1 px-4 py-3 bg-primary border border-slate-600 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="flex-1 px-4 py-2 bg-white border-2 border-border-color rounded-lg text-black placeholder-muted-text focus:outline-none focus:ring-2 focus:ring-accent font-semibold text-sm"
               />
               <button
                 type="submit"
                 disabled={isCreating}
-                className="bg-accent text-white px-6 py-3 rounded-md font-semibold hover:bg-blue-600 disabled:bg-slate-600 transition flex items-center gap-2"
+                className="bg-accent text-white px-6 py-2 rounded-lg font-bold border-2 border-accent hover:bg-background hover:text-accent transition flex items-center gap-2 text-sm whitespace-nowrap disabled:bg-muted-text"
               >
-                <Plus size={20} />
+                <Plus size={18} strokeWidth={2} />
                 {isCreating ? 'Creating...' : 'Create'}
               </button>
             </form>
@@ -124,11 +124,11 @@ export default function DashboardPage() {
 
           {/* Projects Grid */}
           <div>
-            <h2 className="text-2xl font-bold text-white mb-6">Your Projects</h2>
+            <h2 className="text-2xl font-bold text-black mb-6">Your Projects</h2>
             {projects.length === 0 ? (
               <div className="text-center py-12">
-                <FileText size={48} className="mx-auto text-slate-500 mb-4" />
-                <p className="text-slate-400 text-lg">No projects yet. Create one to get started!</p>
+                <FileText size={48} className="mx-auto text-border-color mb-4" strokeWidth={1.5} />
+                <p className="text-muted-text text-lg font-bold">No projects yet. Create one to get started!</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -136,15 +136,15 @@ export default function DashboardPage() {
                   <Link
                     key={project.ProjectID}
                     href={`/projects/${project.ProjectID}`}
-                    className="bg-secondary rounded-lg shadow-lg p-6 hover:shadow-xl hover:border-accent border border-slate-700 transition cursor-pointer"
+                    className="bg-primary border-2 border-border-color rounded-lg p-6 hover:border-accent hover:shadow-lg transition cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-4">
-                      <FileText size={32} className="text-accent" />
+                      <FileText size={32} className="text-accent" strokeWidth={2} />
                     </div>
-                    <h3 className="text-xl font-semibold text-white mb-2 truncate">
+                    <h3 className="text-xl font-bold text-black mb-2 truncate">
                       {project.ProjectName}
                     </h3>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-muted-text text-sm font-semibold">
                       ID: {project.ProjectID.slice(0, 8)}...
                     </p>
                   </Link>

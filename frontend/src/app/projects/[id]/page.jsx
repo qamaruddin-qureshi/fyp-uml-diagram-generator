@@ -133,33 +133,32 @@ export default function ProjectPage() {
   return (
     <>
       <Toaster />
-      <div className="min-h-screen bg-primary py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-background py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-8 flex items-center justify-between">
             <div>
               <button
                 onClick={() => router.push('/dashboard')}
-                className="flex items-center gap-2 text-slate-400 hover:text-white transition mb-4"
+                className="flex items-center gap-2 text-accent hover:text-black transition mb-4 font-bold text-sm border-2 border-border-color px-3 py-2 rounded-lg"
               >
-                <ArrowLeft size={20} />
+                <ArrowLeft size={18} strokeWidth={2} />
                 Back to Dashboard
               </button>
-              <h1 className="text-4xl font-bold text-white">{project.ProjectName}</h1>
-              <p className="text-slate-400 mt-2">Project ID: {project.ProjectID}</p>
+              <h1 className="text-4xl font-bold text-black">{project.ProjectName}</h1>
             </div>
           </div>
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Column - Editor */}
-            <div className="bg-secondary rounded-lg shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-white mb-6">User Stories</h2>
+            <div className="bg-primary border-2 border-border-color rounded-lg p-8">
+              <h2 className="text-2xl font-bold text-black mb-6">User Stories</h2>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Stories Input */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-bold text-black mb-2">
                     Enter your user stories (one per line)
                   </label>
                   <textarea
@@ -167,19 +166,19 @@ export default function ProjectPage() {
                     onChange={(e) => setStories(e.target.value)}
                     placeholder="As a user, I want to...&#10;As a customer, I want to...&#10;As an admin, I want to..."
                     rows={8}
-                    className="w-full px-4 py-3 bg-primary border border-slate-600 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                    className="w-full px-4 py-2 bg-white border-2 border-border-color rounded-lg text-black placeholder-muted-text focus:outline-none focus:ring-2 focus:ring-accent resize-none font-semibold text-sm"
                   />
                 </div>
 
                 {/* Diagram Type Selector */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label className="block text-sm font-bold text-black mb-2">
                     Diagram Type
                   </label>
                   <select
                     value={diagramType}
                     onChange={handleDiagramTypeChange}
-                    className="w-full px-4 py-2 bg-primary border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                    className="w-full px-4 py-2 bg-white border-2 border-border-color rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-accent font-semibold text-sm"
                   >
                     {DIAGRAM_TYPES.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -187,8 +186,8 @@ export default function ProjectPage() {
                       </option>
                     ))}
                   </select>
-                  <small className="block text-slate-400 mt-2">
-                    Current: <span className="text-accent font-semibold">{diagramType}</span>
+                  <small className="block text-muted-text mt-2 font-bold text-xs">
+                    Current: <span className="text-accent font-bold text-sm">{diagramType}</span>
                   </small>
                 </div>
 
@@ -196,19 +195,19 @@ export default function ProjectPage() {
                 <button
                   type="submit"
                   disabled={isUpdating}
-                  className="w-full bg-accent text-white py-3 rounded-md font-semibold hover:bg-blue-600 disabled:bg-slate-600 transition flex items-center justify-center gap-2"
+                  className="w-full bg-accent text-white font-bold py-2 px-4 rounded-lg border-2 border-accent hover:bg-background hover:text-accent transition flex items-center justify-center gap-2 text-sm disabled:bg-muted-text"
                 >
-                  <Zap size={20} />
+                  <Zap size={18} strokeWidth={2} />
                   {isUpdating ? 'Generating...' : 'Generate / Update Diagram'}
                 </button>
               </form>
             </div>
 
             {/* Right Column - Diagram */}
-            <div className="bg-secondary rounded-lg shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-white mb-6">Generated Diagram</h2>
+            <div className="bg-primary border-2 border-border-color rounded-lg p-8">
+              <h2 className="text-2xl font-bold text-black mb-6">Generated Diagram</h2>
 
-              <div className="bg-primary rounded-md overflow-hidden flex items-center justify-center min-h-96">
+              <div className="bg-white border-2 border-border-color rounded-lg overflow-hidden flex items-center justify-center min-h-96">
                 {diagramUrl ? (
                   <div className="w-full relative">
                     <Image
@@ -225,9 +224,9 @@ export default function ProjectPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <div className="text-slate-500 text-4xl mb-4">📊</div>
-                    <p className="text-slate-400">No diagram generated yet.</p>
-                    <p className="text-slate-500 text-sm mt-2">
+                    <div className="text-accent text-4xl mb-4 font-bold">📊</div>
+                    <p className="text-black font-bold text-lg">No diagram generated yet.</p>
+                    <p className="text-muted-text text-sm mt-2 font-semibold">
                       Add some user stories and select a diagram type to get started.
                     </p>
                   </div>
