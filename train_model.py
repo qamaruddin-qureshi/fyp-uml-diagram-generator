@@ -8,6 +8,38 @@ import shutil
 from sklearn.model_selection import train_test_split
 
 
+def remove_overlapping_entities(entities):
+    """
+    Remove overlapping entities, keeping the longer span when there's overlap.
+    Entities should be tuples of (start, end, label).
+    Returns a sorted list of non-overlapping entities.
+    """
+    if not entities:
+        return []
+    
+    # Sort by start position, then by length (longest first)
+    sorted_entities = sorted(entities, key=lambda x: (x[0], -(x[1] - x[0])))
+    
+    # Remove overlaps
+    filtered = []
+    for entity in sorted_entities:
+        start, end, label = entity
+        
+        # Check if this entity overlaps with any already accepted entity
+        is_overlapping = False
+        for existing_start, existing_end, _ in filtered:
+            # Check for any kind of overlap
+            if not (end <= existing_start or start >= existing_end):
+                is_overlapping = True
+                break
+        
+        if not is_overlapping:
+            filtered.append(entity)
+    
+    # Sort by start position for spaCy
+    return sorted(filtered, key=lambda x: x[0])
+
+
 def convert_json_to_spacy(json_file_path, output_path="./train.spacy"):
     nlp = spacy.blank("en")
     db = DocBin()
@@ -63,18 +95,29 @@ def convert_json_to_spacy(json_file_path, output_path="./train.spacy"):
                     start = text.find(str(v))
                     if start != -1:
                         end = start + len(str(v))
-                        span = doc.char_span(start, end, label=label)
+                        span = doc.char_span(start, end, label=label, alignment_mode="contract")
                         if span:
-                            ents.append(span)
+                            ents.append((span.start, span.end, label))
             else:
                 start = text.find(str(value))
                 if start != -1:
                     end = start + len(str(value))
-                    span = doc.char_span(start, end, label=label)
+                    span = doc.char_span(start, end, label=label, alignment_mode="contract")
                     if span:
-                        ents.append(span)
+                        ents.append((span.start, span.end, label))
 
-        doc.ents = ents
+        # Remove overlapping entities and sort by start position
+        ents = remove_overlapping_entities(ents)
+        
+        # Convert tuples back to spans
+        filtered_spans = []
+        for start, end, label in ents:
+            span = doc[start:end]
+            if span.text.strip():  # Only add non-empty spans
+                span.label_ = label
+                filtered_spans.append(span)
+        
+        doc.ents = filtered_spans
         db.add(doc)
         doc_count += 1
 
