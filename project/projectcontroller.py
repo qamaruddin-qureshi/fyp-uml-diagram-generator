@@ -2,7 +2,14 @@ from flask import render_template, jsonify
 from flask import redirect, url_for, flash, render_template_string, current_app, send_file
 from persistence import PersistenceLayer
 from models import User
-from uml_utils import nlp, NLPEngine, DiagramGenerator
+from uml_extractors import (
+    ClassDiagramExtractor,
+    UseCaseDiagramExtractor,
+    SequenceDiagramExtractor,
+    ActivityDiagramExtractor
+)
+from uml_generator import DiagramGenerator
+import spacy
 import os, time, logging
 from io import BytesIO
 from PIL import Image
@@ -202,17 +209,36 @@ def update_project_logic(request, current_user, project_id, is_json=False):
                 logger.debug(f"[update_project_logic] First story: {stories_list[0]}")
             
             # Generate diagram
-            logger.info(f"[update_project_logic] Creating NLP engine and generator")
-            nlp_engine = NLPEngine(nlp)
+            logger.info(f"[update_project_logic] Creating extractor and generator")
+            # Load spaCy model (should match main.py logic)
+            MODEL_PATH = "./my_uml_model/model-best"
+            if not os.path.exists(MODEL_PATH):
+                logger.warning(f"Model not found at {MODEL_PATH}. Using blank model.")
+                nlp = spacy.blank("en")
+            else:
+                try:
+                    nlp = spacy.load(MODEL_PATH)
+                    logger.info("Model loaded successfully.")
+                except Exception as e:
+                    logger.error(f"Model load error: {e}. Using blank model as fallback.")
+                    nlp = spacy.blank("en")
+
+            extractors = {
+                "class": ClassDiagramExtractor(nlp),
+                "use_case": UseCaseDiagramExtractor(nlp),
+                "sequence": SequenceDiagramExtractor(nlp),
+                "activity": ActivityDiagramExtractor(nlp)
+            }
+            extractor = extractors.get(diagram_type, ClassDiagramExtractor(nlp))
             generator = DiagramGenerator()
-            
+
             logger.info(f"[update_project_logic] Extracting diagram model with type '{diagram_type}'")
-            new_model_elements = nlp_engine.extract_diagram_model(stories_list, diagram_type)
+            new_model_elements = extractor.extract(stories_list)
             logger.info(f"[update_project_logic] Extracted {len(new_model_elements)} model elements")
-            
+
             logger.info(f"[update_project_logic] Saving model elements")
             persistence.save_model_elements(project_id, new_model_elements)
-            
+
             logger.info(f"[update_project_logic] Generating diagram")
             generator.generate_diagram(project_id, diagram_type, new_model_elements)
             logger.info(f"[update_project_logic] Diagram generation complete")
