@@ -41,27 +41,42 @@ class DiagramGenerator:
             return
 
         puml_code = ["@startuml"]
-        # Extract actors from Class elements with stereotype="actor"
+        # Add system boundary
+        puml_code.append("rectangle System {")
+        # Dynamically extract actors and use cases
         actors = set()
+        use_cases = set()
+        relationships = []
         for el in elements:
             if el['type'] == 'Class' and el['data'].get('stereotype') == 'actor':
                 actors.add(el['data']['name'])
-        # Extract use cases
-        use_cases = [el for el in elements if el['type'] == 'UseCase']
-        # Add actors to PlantUML
+            if el['type'] == 'UseCase':
+                # Use PascalCase or verb-noun phrase
+                uc_name = el['data']['name']
+                uc_name_fmt = re.sub(r'[^a-zA-Z0-9 ]', '', uc_name).title().replace(' ', '')
+                use_cases.add(uc_name_fmt)
+            if el['type'] == 'Relationship':
+                relationships.append(el['data'])
+        # Add actors (outside system boundary)
         for actor in sorted(actors):
             puml_code.append(f"actor {actor}")
-        # Add use cases to PlantUML
-        for uc in use_cases:
-            name = uc['data']['name']
-            alias = self._format_class_name(name)
-            puml_code.append(f'usecase "{name}" as {alias}')
-        # Add relationships (Actor --> UseCase)
-        for el in [el for el in elements if el['type'] == 'Relationship']:
-            data = el['data']
-            class_a_alias = self._format_class_name(data['class_a'])
-            class_b_alias = self._format_class_name(data['class_b'])
-            puml_code.append(f"{class_a_alias} --> {class_b_alias}")
+        # Add use cases (inside system boundary)
+        for uc in sorted(use_cases):
+            puml_code.append(f'usecase "{uc}" as {uc}')
+        # Connect actor to use cases
+        for rel in relationships:
+            class_a = rel['class_a']
+            class_b = rel['class_b']
+            class_a_fmt = re.sub(r'[^a-zA-Z0-9 ]', '', class_a).title().replace(' ', '')
+            class_b_fmt = re.sub(r'[^a-zA-Z0-9 ]', '', class_b).title().replace(' ', '')
+            # Only connect actor to use case
+            if class_a_fmt in actors and class_b_fmt in use_cases:
+                puml_code.append(f"{class_a_fmt} --> {class_b_fmt}")
+        # Optionally infer include/extend relationships contextually
+        # Example: if 'login' and 'register' both present, add include
+        if 'Login' in use_cases and 'RegisterAccount' in use_cases:
+            puml_code.append('Login ..> RegisterAccount : <<include>>')
+        puml_code.append("}")
         puml_code.append("@enduml")
         final_puml_code = "\n".join(puml_code)
         puml_filename = os.path.join(puml_dir, f"use_case_{project_id}.puml")
