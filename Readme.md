@@ -11,3 +11,5 @@
 > try and update
 
 > test.py is for checking pipeline tags validity
+
+> requirements.txt file NOT removed incase of emergency fallback
