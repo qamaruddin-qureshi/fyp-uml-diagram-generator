@@ -5,7 +5,12 @@ import datetime
 from flask_login import UserMixin
 import uuid
 
+
+
 Base = declarative_base()
+
+
+
 
 class User(Base, UserMixin):
     __tablename__ = 'users'
@@ -34,6 +39,10 @@ class User(Base, UserMixin):
     def get_id(self):
         return self.userid
 
+
+
+
+
 class Project(Base):
     __tablename__ = 'projects'
     projectid = Column(String(36), primary_key=True, unique=True, nullable=False)
@@ -54,6 +63,10 @@ class Project(Base):
         if userid is not None:
             self.userid = userid
 
+
+
+
+
 class UserStory(Base):
     __tablename__ = 'userstories'
     storyid = Column(String(36), primary_key=True, unique=True, nullable=False)
@@ -73,6 +86,10 @@ class UserStory(Base):
             self.projectid = projectid
         if storytext is not None:
             self.storytext = storytext
+
+
+
+
 
 class ModelElement(Base):
     __tablename__ = 'modelelements'

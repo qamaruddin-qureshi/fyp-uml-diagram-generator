@@ -84,7 +84,27 @@ def convert_json_to_spacy(json_file_path, output_path="./train.spacy"):
             "flow_steps": "FLOW_STEP"
         }
 
-        # Generate entity spans for each field
+        # Improved entity span matching: partial matches, synonyms, and fallback annotation
+        import difflib
+        def find_best_span(text, value):
+            # Try exact match first
+            start = text.find(str(value))
+            if start != -1:
+                return start, start + len(str(value))
+            # Try partial match (longest matching substring)
+            words = str(value).split()
+            for w in words:
+                if len(w) > 2:
+                    idx = text.lower().find(w.lower())
+                    if idx != -1:
+                        return idx, idx + len(w)
+            # Try fuzzy match (difflib)
+            matcher = difflib.SequenceMatcher(None, text.lower(), str(value).lower())
+            match = matcher.find_longest_match(0, len(text), 0, len(str(value)))
+            if match.size > 3:
+                return match.a, match.a + match.size
+            return None, None
+
         for key, label in fields.items():
             value = groq_output.get(key)
             if not value:
@@ -92,19 +112,35 @@ def convert_json_to_spacy(json_file_path, output_path="./train.spacy"):
 
             if isinstance(value, list):
                 for v in value:
-                    start = text.find(str(v))
-                    if start != -1:
-                        end = start + len(str(v))
+                    start, end = find_best_span(text, v)
+                    if start is not None and end is not None:
                         span = doc.char_span(start, end, label=label, alignment_mode="contract")
                         if span:
                             ents.append((span.start, span.end, label))
+                    else:
+                        # Fallback: annotate first word as entity
+                        v_str = str(v)
+                        if v_str:
+                            idx = text.lower().find(v_str.split()[0].lower())
+                            if idx != -1:
+                                span = doc.char_span(idx, idx + len(v_str.split()[0]), label=label, alignment_mode="contract")
+                                if span:
+                                    ents.append((span.start, span.end, label))
             else:
-                start = text.find(str(value))
-                if start != -1:
-                    end = start + len(str(value))
+                start, end = find_best_span(text, value)
+                if start is not None and end is not None:
                     span = doc.char_span(start, end, label=label, alignment_mode="contract")
                     if span:
                         ents.append((span.start, span.end, label))
+                else:
+                    # Fallback: annotate first word as entity
+                    value_str = str(value)
+                    if value_str:
+                        idx = text.lower().find(value_str.split()[0].lower())
+                        if idx != -1:
+                            span = doc.char_span(idx, idx + len(value_str.split()[0]), label=label, alignment_mode="contract")
+                            if span:
+                                ents.append((span.start, span.end, label))
 
         # Remove overlapping entities and sort by start position
         ents = remove_overlapping_entities(ents)

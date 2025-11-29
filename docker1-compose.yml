@@ -1,0 +1,59 @@
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: docker
+      POSTGRES_PASSWORD: docker
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      - dev-network
+
+  adminer:
+    image: adminer:latest
+    container_name: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+
+  app:
+    image: python:3.11-slim
+    container_name: uml_app
+    environment:
+      DB_HOST: postgres
+      DB_USER: docker
+      DB_PASSWORD: docker
+      DB_NAME: postgres
+      DB_PORT: 5432
+    volumes:
+      - .:/app
+      - /app/my_uml_model
+      - /app/static
+      - /app/generated_puml
+    working_dir: /app
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    networks:
+      - dev-network
+    command: >
+      sh -c "
+      pip install --no-cache-dir flask==3.0.3 flask-login>=0.6.3 flask-cors>=4.0.0 werkzeug==3.0.3 pyodbc==5.3.0 waitress==3.0.1 spacy>=3.7.0 scikit-learn>=1.3.0 Pillow>=10.0.0 reportlab>=4.0.0 python-dotenv>=1.0.0 tqdm>=4.66.0 certifi>=2023.0.0 requests>=2.31.0 plantuml==0.3.0 SQLAlchemy>=2.0.0 psycopg2-binary>=2.9.0 &&
+      python main.py
+      "
+
+volumes:
+  postgres_data:
+
+networks:
+  dev-network:
+    driver: bridge

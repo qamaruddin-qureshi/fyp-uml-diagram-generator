@@ -8,6 +8,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+
+
 class BaseDiagramExtractor:
     def __init__(self, nlp_model):
         self.nlp = nlp_model
@@ -62,6 +65,9 @@ class BaseDiagramExtractor:
                 'data': {'class_a': class_a, 'class_b': class_b, 'type': rel_type, 'card_a': card_a, 'card_b': card_b},
                 'source_id': source_id
             })
+
+
+
 
 class ClassDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
@@ -194,6 +200,9 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
         logger.info(f"Extracted {len(self.model_elements)} elements for class diagram")
         return self.model_elements
 
+
+
+
 class UseCaseDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
         self.model_elements = []
@@ -250,6 +259,10 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
         except Exception as e:
             logger.error(f"Use case extraction error for story {story_id}: {e}")
 
+
+
+
+
 class SequenceDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
         self.model_elements = []
@@ -301,6 +314,10 @@ class SequenceDiagramExtractor(BaseDiagramExtractor):
                     })
         except Exception as e:
             logger.error(f"Sequence extraction error for story {story_id}: {e}")
+
+
+
+
 
 class ActivityDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
