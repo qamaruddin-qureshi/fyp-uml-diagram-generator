@@ -9,8 +9,19 @@ const getInitialState = () => {
     }
   }
 
+  let user = null;
+  try {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser && storedUser !== 'undefined' && storedUser !== 'null') {
+      user = JSON.parse(storedUser);
+    }
+  } catch (error) {
+    console.error('Failed to parse stored user:', error);
+    localStorage.removeItem('user'); // Clear corrupted data
+  }
+
   return {
-    user: JSON.parse(localStorage.getItem('user') || 'null'),
+    user,
     isAuthenticated: !!localStorage.getItem('token'),
   }
 }
