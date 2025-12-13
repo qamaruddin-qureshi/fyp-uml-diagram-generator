@@ -210,26 +210,34 @@ def update_project_logic(request, current_user, project_id, is_json=False):
             
             # Generate diagram
             logger.info(f"[update_project_logic] Creating extractor and generator")
-            # Load spaCy model (should match main.py logic)
+            # Load spaCy models
+            # 1. Standard Model for Syntax
+            try:
+                nlp_standard = spacy.load("en_core_web_lg")
+                logger.info("Loaded en_core_web_lg.")
+            except Exception as e:
+                logger.warning(f"Failed to load en_core_web_lg: {e}. Using blank.")
+                nlp_standard = spacy.blank("en")
+
+            # 2. Custom NER Model
             MODEL_PATH = "./my_uml_model/model-best"
+            nlp_ner = None
             if not os.path.exists(MODEL_PATH):
-                logger.warning(f"Model not found at {MODEL_PATH}. Using blank model.")
-                nlp = spacy.blank("en")
+                logger.warning(f"Model not found at {MODEL_PATH}.")
             else:
                 try:
-                    nlp = spacy.load(MODEL_PATH)
-                    logger.info("Model loaded successfully.")
+                    nlp_ner = spacy.load(MODEL_PATH)
+                    logger.info("Custom NER model loaded successfully.")
                 except Exception as e:
-                    logger.error(f"Model load error: {e}. Using blank model as fallback.")
-                    nlp = spacy.blank("en")
+                    logger.error(f"Model load error: {e}.")
 
             extractors = {
-                "class": ClassDiagramExtractor(nlp),
-                "use_case": UseCaseDiagramExtractor(nlp),
-                "sequence": SequenceDiagramExtractor(nlp),
-                "activity": ActivityDiagramExtractor(nlp)
+                "class": ClassDiagramExtractor(nlp_standard, ner_model=nlp_ner),
+                "use_case": UseCaseDiagramExtractor(nlp_standard, ner_model=nlp_ner),
+                "sequence": SequenceDiagramExtractor(nlp_standard, ner_model=nlp_ner),
+                "activity": ActivityDiagramExtractor(nlp_standard, ner_model=nlp_ner)
             }
-            extractor = extractors.get(diagram_type, ClassDiagramExtractor(nlp))
+            extractor = extractors.get(diagram_type, ClassDiagramExtractor(nlp_standard, ner_model=nlp_ner))
             generator = DiagramGenerator()
 
             logger.info(f"[update_project_logic] Extracting diagram model with type '{diagram_type}'")

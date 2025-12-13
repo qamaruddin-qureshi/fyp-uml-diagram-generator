@@ -68,20 +68,29 @@ Base.metadata.create_all(engine)
 
 
 # Directories and Model
+# Directories and Model
 PUML_DIR = "generated_puml"
 STATIC_DIR = "static"
 MODEL_PATH = "./my_uml_model/model-best"
 
+# Load Standard Model (Syntax/Parsing)
+try:
+    nlp_standard = spacy.load("en_core_web_lg")
+    logger.info("Loaded en_core_web_lg.")
+except Exception as e:
+    logger.warning(f"Failed to load en_core_web_lg: {e}. Using blank 'en' model.")
+    nlp_standard = spacy.blank("en")
+
+# Load Custom NER Model
+nlp_ner = None
 if not os.path.exists(MODEL_PATH):
-    logger.warning(f"Model not found at {MODEL_PATH}. Run train_model.py first. Using blank model.")
-    nlp = spacy.blank("en")
+    logger.warning(f"Model not found at {MODEL_PATH}. Run train_model.py first.")
 else:
     try:
-        nlp = spacy.load(MODEL_PATH)
-        logger.info("Model loaded successfully.")
+        nlp_ner = spacy.load(MODEL_PATH)
+        logger.info("Custom NER model loaded successfully.")
     except Exception as e:
-        logger.error(f"Model load error: {e}. Using blank model as fallback.")
-        nlp = spacy.blank("en")
+        logger.error(f"Model load error: {e}.")
 
 if not os.path.exists(STATIC_DIR): os.makedirs(STATIC_DIR)
 if not os.path.exists(PUML_DIR): os.makedirs(PUML_DIR)
@@ -90,10 +99,11 @@ from flask import render_template
 
 
 # --- Extractor Instances ---
-class_diagram_extractor = ClassDiagramExtractor(nlp)
-use_case_extractor = UseCaseDiagramExtractor(nlp)
-sequence_extractor = SequenceDiagramExtractor(nlp)
-activity_extractor = ActivityDiagramExtractor(nlp)
+# Pass standard NLP for syntax and custom NER for entities
+class_diagram_extractor = ClassDiagramExtractor(nlp_standard, ner_model=nlp_ner)
+use_case_extractor = UseCaseDiagramExtractor(nlp_standard, ner_model=nlp_ner)
+sequence_extractor = SequenceDiagramExtractor(nlp_standard, ner_model=nlp_ner)
+activity_extractor = ActivityDiagramExtractor(nlp_standard, ner_model=nlp_ner)
 diagram_generator = DiagramGenerator()
 
 
