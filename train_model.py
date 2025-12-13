@@ -52,18 +52,18 @@ def convert_json_to_spacy(json_file_path, output_path="./train.spacy"):
     skipped_count = 0
 
     for item in data:
-        # Expecting keys: user_story and groq_output
-        if not isinstance(item, dict) or "user_story" not in item or "groq_output" not in item:
+        # Expecting keys: user_story and (groq_output OR output)
+        if not isinstance(item, dict) or "user_story" not in item:
             print(f"Warning: Skipping malformed item: {item}")
             skipped_count += 1
             continue
-
+        
         text = item["user_story"]
         
-        groq_output = item.get("groq_output") 
+        groq_output = item.get("groq_output") or item.get("output")
         
         if not isinstance(groq_output, dict):
-            print(f"Warning: Skipping malformed groq_output in item: {item}")
+            print(f"Warning: Skipping item with missing/invalid output data: {item}")
             skipped_count += 1
             continue
 
