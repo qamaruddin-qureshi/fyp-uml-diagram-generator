@@ -99,9 +99,11 @@ export default function ProjectPage() {
 
     setIsUpdating(true)
     try {
+      // FIX 1: Changed 'userStories' to 'user_stories' (Backend expects snake_case)
+      // FIX 2: Changed 'diagramType' to 'diagram_type' (Backend expects snake_case)
       const response = await projectAPI.update(params.id, {
-        userStories: stories,
-        diagramType,
+        user_stories: stories,
+        diagram_type: diagramType, 
       })
 
       if (response.success) {

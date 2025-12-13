@@ -22,7 +22,7 @@ export default function DashboardPage() {
     setIsClient(true)
   }, [])
 
-  useEffect(() => {
+useEffect(() => {
     if (!isClient) return
     
     if (!isAuthenticated) {
@@ -32,11 +32,19 @@ export default function DashboardPage() {
 
     const fetchProjects = async () => {
       try {
-        const data = await projectAPI.getAll()
-        setProjects(data)
+        const response = await projectAPI.getAll()
+        
+        // FIX: Check for success and extract the 'data' array
+        if (response.success && Array.isArray(response.data)) {
+          setProjects(response.data)
+        } else {
+          console.error('Invalid project data format:', response)
+          setProjects([])
+        }
       } catch (error) {
         toast.error('Failed to load projects')
         console.error(error)
+        setProjects([]) 
       } finally {
         setIsLoading(false)
       }
@@ -44,7 +52,7 @@ export default function DashboardPage() {
 
     fetchProjects()
   }, [isAuthenticated, router, setProjects, isClient])
-
+  
   const handleCreateProject = async (e) => {
     e.preventDefault()
 
