@@ -572,6 +572,45 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                          if "capacity" in text.lower():
                                               params.append({'name': 'condition', 'type': 'String', 'direction': 'in'})
 
+                        # 5. CRM Logic
+                        # Activity
+                        if "activity" in text.lower() or method_name.lower() == "log":
+                             # "log an activity (call, email)"
+                             self._add_class("Activity", source_id=story_id)
+                             # User -> Activity (Association/Creation)
+                             self._add_relationship(subject_entity, "Activity", "Association", source_id=story_id)
+                             # Subtypes? (call, email) - treat as attributes context for now or just generic Activity
+
+                             # Check for "against" relationship (log activity against contact)
+                             for token in doc:
+                                 if token.text.lower() in ["log", "activity"]:
+                                     for child in token.children:
+                                         if child.dep_ == "prep" and child.text == "against":
+                                             for gchild in child.children:
+                                                 if gchild.dep_ in ["pobj", "dobj"]: # "against contact"
+                                                      target_obj = self._normalize_name(gchild.text)
+                                                      # Activity -> Target
+                                                      self._add_relationship("Activity", target_obj, "Association", source_id=story_id)
+                                                      # Ensure target class exists if reasonable
+                                                      if target_obj.lower() not in self.class_stop_list:
+                                                          self._add_class(target_obj, source_id=story_id)
+                             
+                        # Dashboard
+                        if "dashboard" in text.lower() and method_name.lower() == "view":
+                             self._add_class("Dashboard", source_id=story_id)
+                             self._add_relationship(subject_entity, "Dashboard", "Dependency", source_id=story_id)
+                             # dashboard of what?
+                             for token in doc:
+                                 if token.text.lower() == "dashboard":
+                                     for child in token.children:
+                                         if child.dep_ == "prep" and child.text == "of":
+                                             for gchild in child.children:
+                                                 if gchild.dep_ == "pobj":
+                                                      # dashboard of sales pipeline?
+                                                      # if pipeline is stopped, we won't find it as a class, but we can note it?
+                                                      # Actually, just Dashboard is fine for now. 
+                                                      pass
+
                 # 4. Relationships & Inheritance
                 # Actor uses Class
                 if subject_entity and current_classes:
@@ -637,6 +676,14 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                         defaults = ["name", "path", "itemCount"]
                     elif "link" in cn_lower:
                         defaults = ["url", "expiryDate", "permissions"]
+                    elif "contact" in cn_lower:
+                        defaults = ["name", "phone", "email", "company"]
+                    elif "opportunity" in cn_lower or "lead" in cn_lower:
+                        defaults = ["stage", "value", "closeDate", "probability"]
+                    elif "account" in cn_lower:
+                        defaults = ["name", "industry", "location"]
+                    elif "activity" in cn_lower:
+                        defaults = ["type", "date", "notes", "duration"]
                     else:
                         defaults = ["id", "description"]
                     
