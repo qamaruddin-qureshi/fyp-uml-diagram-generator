@@ -588,12 +588,19 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                          if child.dep_ == "prep" and child.text == "against":
                                              for gchild in child.children:
                                                  if gchild.dep_ in ["pobj", "dobj"]: # "against contact"
-                                                      target_obj = self._normalize_name(gchild.text)
-                                                      # Activity -> Target
-                                                      self._add_relationship("Activity", target_obj, "Association", source_id=story_id)
-                                                      # Ensure target class exists if reasonable
-                                                      if target_obj.lower() not in self.class_stop_list:
-                                                          self._add_class(target_obj, source_id=story_id)
+                                                      targets = [gchild]
+                                                      # Check conjunctions (contact OR account)
+                                                      for ggchild in gchild.children:
+                                                          if ggchild.dep_ == "conj":
+                                                              targets.append(ggchild)
+                                                      
+                                                      for target in targets:
+                                                          target_obj = self._normalize_name(target.text)
+                                                          # Activity -> Target
+                                                          self._add_relationship("Activity", target_obj, "Association", source_id=story_id)
+                                                          # Ensure target class exists if reasonable
+                                                          if target_obj.lower() not in self.class_stop_list:
+                                                              self._add_class(target_obj, source_id=story_id)
                              
                         # Dashboard
                         if "dashboard" in text.lower() and method_name.lower() == "view":
@@ -657,6 +664,11 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                          if "inspector" in cls_name.lower():
                              self._add_method(cls_name, "receiveWork", 0, params=[{'name':'assignment', 'type':'Inspection', 'direction':'in'}], visibility="+", return_type="void")
                              self._add_method(cls_name, "updateStatus", 0, visibility="+", return_type="void")
+                         elif "researcher" in cls_name.lower():
+                             self._add_method(cls_name, "login", 0, visibility="+", return_type="void")
+                         elif cls_name == "User":
+                             self._add_method(cls_name, "login", 0, visibility="+", return_type="void")
+                             self._add_method(cls_name, "logout", 0, visibility="+", return_type="void")
 
                 elif not is_actor:
                     # Passive Classes / Objects
