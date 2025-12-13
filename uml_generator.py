@@ -40,59 +40,89 @@ class DiagramGenerator:
             self._create_placeholder(os.path.join(static_dir, f"use_case_{project_id}.png"), "No elements extracted.")
             return
 
-        puml_code = ["@startuml"]
-        # Add system boundary
-        puml_code.append("rectangle System {")
-        # Dynamically extract actors and use cases
-        actors = set()
-        use_cases = set()
+        puml_code = ["@startuml", "left to right direction"]
+        
+        # 1. Collect unique Actors and Use Cases
+        # Using a robust lookup map to connect unique actors and use cases: { "normalized_key": "SafeID" }
+        id_lookup = {}
+        
+        # Store the display definitions to write to the file
+        actor_definitions = {} # SafeID -> Display Name
+        usecase_definitions = {} # SafeID -> Display Name
         relationships = []
+
+        # Helper to normalize keys for lookup (lowercase, no spaces)
+        def normalize_key(text):
+            return re.sub(r'[^a-zA-Z0-9]', '', text).lower()
+
+        # Helper to make safe IDs for PlantUML (alphanumeric only)
+        def make_id(text):
+            clean = re.sub(r'[^a-zA-Z0-9]', '', text)
+            if not clean:
+                return "Unknown" + str(hash(text))
+            return clean
+
         for el in elements:
             if el['type'] == 'Class' and el['data'].get('stereotype') == 'actor':
-                actors.add(el['data']['name'])
+                name = el['data']['name']
+                safe_id = make_id(name)
+                # Store for lookup
+                id_lookup[normalize_key(name)] = safe_id
+                # Store for definition
+                actor_definitions[safe_id] = name
+            
             if el['type'] == 'UseCase':
-                # Use PascalCase or verb-noun phrase
-                uc_name = el['data']['name']
-                uc_name_fmt = re.sub(r'[^a-zA-Z0-9 ]', '', uc_name).title().replace(' ', '')
-                use_cases.add(uc_name_fmt)
+                name = el['data']['name']
+                safe_id = make_id(name)
+                # Store for lookup
+                id_lookup[normalize_key(name)] = safe_id
+                # Store for definition
+                usecase_definitions[safe_id] = name
+            
             if el['type'] == 'Relationship':
                 relationships.append(el['data'])
-        # Add actors (outside system boundary)
-        for actor in sorted(actors):
-            puml_code.append(f"actor {actor}")
-        # Add use cases (inside system boundary)
-        for uc in sorted(use_cases):
-            puml_code.append(f'usecase "{uc}" as {uc}')
-        # Connect actor to use cases
+
+        # 2. Define Actors with Aliases
+        for safe_id, display_name in actor_definitions.items():
+            puml_code.append(f'actor "{display_name}" as {safe_id}')
+
+        # 3. Define Use Cases with Aliases (inside rectangle)
+        puml_code.append("rectangle System {")
+        for safe_id, display_name in usecase_definitions.items():
+            puml_code.append(f'usecase "{display_name}" as {safe_id}')
+        puml_code.append("}")
+
+        # 4. Draw Relationships using Safe IDs
         for rel in relationships:
             class_a = rel['class_a']
             class_b = rel['class_b']
-            class_a_fmt = re.sub(r'[^a-zA-Z0-9 ]', '', class_a).title().replace(' ', '')
-            class_b_fmt = re.sub(r'[^a-zA-Z0-9 ]', '', class_b).title().replace(' ', '')
-            # Only connect actor to use case
-            if class_a_fmt in actors and class_b_fmt in use_cases:
-                puml_code.append(f"{class_a_fmt} --> {class_b_fmt}")
-        # Optionally infer include/extend relationships contextually
-        # Example: if 'login' and 'register' both present, add include
-        if 'Login' in use_cases and 'RegisterAccount' in use_cases:
-            puml_code.append('Login ..> RegisterAccount : <<include>>')
-        puml_code.append("}")
+            
+            # Lookup using the normalized key
+            id_a = id_lookup.get(normalize_key(class_a))
+            id_b = id_lookup.get(normalize_key(class_b))
+
+            if id_a and id_b:
+                puml_code.append(f"{id_a} --> {id_b}")
+            else:
+                logger.warning(f"Could not connect {class_a} to {class_b}. IDs found: {id_a} -> {id_b}")
+
         puml_code.append("@enduml")
+        
+        # Write file and execute PlantUML
         final_puml_code = "\n".join(puml_code)
         puml_filename = os.path.join(puml_dir, f"use_case_{project_id}.puml")
         with open(puml_filename, 'w') as f:
             f.write(final_puml_code)
+            
         try:
             plantuml_jar = os.path.abspath("plantuml.jar")
-            if not os.path.exists(plantuml_jar):
-                raise FileNotFoundError(f"plantuml.jar not found at {plantuml_jar}")
             subprocess.run(
                 ["java", "-jar", plantuml_jar, puml_filename, "-tpng", "-o", os.path.abspath(static_dir)],
                 check=True,
                 capture_output=True
             )
             logger.info(f"Successfully created use_case_{project_id}.png")
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        except Exception as e:
             logger.error(f"PlantUML error: {e}")
             self._create_placeholder(os.path.join(static_dir, f"use_case_{project_id}.png"), "PlantUML Render Error")
 
@@ -105,14 +135,25 @@ class DiagramGenerator:
 
         puml_code = ["@startuml"]
         participants = set()
+        
+        # Collect all unique names
         for el in [el for el in elements if el['type'] == 'SequenceMessage']:
             participants.add(el['data']['sender'])
             participants.add(el['data']['receiver'])
+
+        # Define participants with quotes to handle spaces
         for participant in participants:
-            puml_code.append(f"participant {participant}")
+            puml_code.append(f'participant "{participant}" as {self._format_class_name(participant)}')
+
+        # Generate messages using the aliases
         for el in [el for el in elements if el['type'] == 'SequenceMessage']:
             data = el['data']
-            puml_code.append(f"{data['sender']} -> {data['receiver']}: {data['message']}")
+            sender_alias = self._format_class_name(data['sender'])
+            receiver_alias = self._format_class_name(data['receiver'])
+            # Escape quotes in message
+            clean_message = data['message'].replace('"', "'")
+            puml_code.append(f'{sender_alias} -> {receiver_alias}: {clean_message}')
+
         puml_code.append("@enduml")
         final_puml_code = "\n".join(puml_code)
         puml_filename = os.path.join(puml_dir, f"sequence_{project_id}.puml")
@@ -186,54 +227,127 @@ class DiagramGenerator:
             return
 
         puml_code = ["@startuml", "skinparam classAttributeIconSize 0"]
+        
+        # Helper to infer data types from names
+        def guess_type(text):
+            text = str(text).lower()
+            if any(x in text for x in ['id', 'count', 'num', 'quantity']): return 'int'
+            if any(x in text for x in ['is', 'has', 'active', 'valid']): return 'boolean'
+            if any(x in text for x in ['date', 'time', 'created']): return 'Date'
+            if any(x in text for x in ['price', 'cost', 'amount']): return 'float'
+            return 'String'
+
+        # Filter for Classes and Actors
         class_elements = [el for el in elements if el['type'] == 'Class']
-        rel_elements = [el for el in elements if el['type'] == 'Relationship']
-        # Add support for AuthenticationService/AccountManager abstraction if present
-        service_classes = [el for el in class_elements if el['data']['name'].lower() in ['authenticationservice', 'accountmanager']]
-        # Improved attribute/method formatting and naming
+        
         for el in class_elements:
             data = el['data']
             name = data['name']
             alias = self._format_class_name(name)
             stereotype = f"<<{data.get('stereotype')}>>" if data.get('stereotype') else ""
-            puml_code.append(f"class \"{name}\" as {alias} {stereotype} {{")
-            # Use CamelCase for attributes, consistent visibility
+            
+            puml_code.append(f'class "{name}" as {alias} {stereotype} {{')
+            
+            # 1. Attributes
             for attr in data.get('attributes', []):
-                attr_fmt = self._format_class_name(attr)
-                puml_code.append(f"  -{attr_fmt}: String")
-            for method in data.get('methods', []):
-                method_fmt = self._format_class_name(method)
-                puml_code.append(f"  +{method_fmt}()")
+                # Check if attr is dict (new format) or string (old format)
+                if isinstance(attr, dict):
+                    attr_name = attr.get('name', 'unknown')
+                    vis = attr.get('visibility', '-')
+                    dtype = attr.get('type', guess_type(attr_name))
+                else:
+                    attr_name = str(attr).strip()
+                    vis = "-"
+                    dtype = guess_type(attr_name)
+                
+                puml_code.append(f'  {vis}{attr_name} : {dtype}')
+            
+            puml_code.append("  ..")
+            
+            # 2. Methods
+            methods = data.get('methods', [])
+            # In new logic, methods is already detailed list of dicts. 
+            # In old logic, it was strings, and there was methods_detailed.
+            # My new extractor puts detailed dicts into 'methods'.
+            
+            for method in methods:
+                if isinstance(method, dict):
+                    m_name = method.get('name', 'func')
+                    vis = method.get('visibility', '+')
+                    ret_type = method.get('return_type', 'void')
+                    params = method.get('params', [])
+                else:
+                    m_name = str(method)
+                    vis = "+"
+                    ret_type = "void"
+                    params = []
+
+                param_str = ""
+                if params:
+                    clean_params = []
+                    for p in params:
+                        if isinstance(p, dict):
+                            p_name = p.get('name', '')
+                            p_type = p.get('type', 'String')
+                            p_dir = p.get('direction', 'in')
+                            clean_params.append(f'{p_dir} "{p_name}" : {p_type}')
+                        else:
+                            # Fallback for old style strings
+                            p_clean = re.sub(r'\b(my|the|a|an)\b', '', str(p), flags=re.IGNORECASE).strip()
+                            if p_clean:
+                                p_type = guess_type(p_clean)
+                                clean_params.append(f'in "{p_clean}" : {p_type}')
+                    param_str = ", ".join(clean_params)
+                
+                puml_code.append(f'  {vis}{m_name}({param_str}) : {ret_type}')
+                
             puml_code.append("}")
-        # Add relationships with clear multiplicity and direction
-        for el in rel_elements:
+
+        # 3. Relationships
+        # Map internal types to PlantUML arrows
+        rel_map = {
+            'Association': '-->',
+            'Inheritance': '--|>', 
+            'Realization': '..|>',
+            'Dependency': '..>',
+            'Aggregation': 'o--',
+            'Composition': '*--',
+            '-->': '-->',   # Fallback for raw types
+            '--|>': '--|>',
+            '..|>': '..|>',
+            '..>': '..>',
+            'o--': 'o--',
+            '*--': '*--'
+        }
+
+        for el in [x for x in elements if x['type'] == 'Relationship']:
             data = el['data']
-            class_a_alias = self._format_class_name(data['class_a'])
-            class_b_alias = self._format_class_name(data['class_b'])
-            card_a = f'"{data.get('card_a', '')}"' if data.get('card_a') else ""
-            card_b = f'"{data.get('card_b', '')}"' if data.get('card_b') else ""
-            # Add relationship label if present
-            label = data.get('label', '')
-            rel_line = f"{class_a_alias} {card_a} {data['type']} {card_b} {class_b_alias}"
-            if label:
-                rel_line += f" : {label}"
-            puml_code.append(rel_line)
+            class_a = self._format_class_name(data['class_a'])
+            class_b = self._format_class_name(data['class_b'])
+            
+            # get type from data, default to Association
+            rel_type_raw = data.get('type', '-->')
+            arrow = rel_map.get(rel_type_raw, '-->')
+            
+            puml_code.append(f"{class_a} {arrow} {class_b}")
+
         puml_code.append("@enduml")
+        
+        # Standard file writing...
         final_puml_code = "\n".join(puml_code)
         puml_filename = os.path.join(puml_dir, f"class_{project_id}.puml")
         with open(puml_filename, 'w') as f:
             f.write(final_puml_code)
+            
         try:
             plantuml_jar = os.path.abspath("plantuml.jar")
-            if not os.path.exists(plantuml_jar):
-                raise FileNotFoundError(f"plantuml.jar not found at {plantuml_jar}")
             subprocess.run(
                 ["java", "-jar", plantuml_jar, puml_filename, "-tpng", "-o", os.path.abspath(static_dir)],
                 check=True,
                 capture_output=True
             )
             logger.info(f"Successfully created class_{project_id}.png")
-        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        except Exception as e:
             logger.error(f"PlantUML error: {e}")
             self._create_placeholder(os.path.join(static_dir, f"class_{project_id}.png"), "PlantUML Render Error")
 

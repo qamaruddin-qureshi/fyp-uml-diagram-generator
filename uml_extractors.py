@@ -12,16 +12,58 @@ logger = logging.getLogger(__name__)
 
 
 class BaseDiagramExtractor:
-    def __init__(self, nlp_model):
+    def __init__(self, nlp_model, ner_model=None):
         self.nlp = nlp_model
+        self.ner_model = ner_model
         self.model_elements = []
         self.found_classes = {}
         self.found_relationships = set()
         self.attribute_patterns = [
             "name", "address", "date", "id", "email", "type", "status", "number", "code",
             "password", "username", "price", "description", "quantity", "totalamount",
-            "orderdate", "shippingaddress"
+            "orderdate", "shippingaddress", "picture", "image", "version"
         ]
+        # Common stop words/concepts that shouldn't be classes
+        self.class_stop_list = [
+            "work", "talks", "articles", "information", "time", "future", "immediate",
+            "teammates", "me", "dataset", "version", "versions", "it", "them", "data", "storage",
+            "access", "content", "history", "system", "%", "space", "mistake", "mistakes", "interface", 
+            "organization", "capacity", "drag-and-drop", "performance", "revenue", "forecast", "value", 
+            "pipeline", "interaction", "stage", "potential"
+        ]
+
+    def _process_text(self, text):
+        """
+        Process text. Splitting "so that" to reduce noise in class extraction.
+        Returns: (doc_full, doc_core)
+        """
+        # Split "so that" for core analysis
+        core_text = text
+        if "so that" in text.lower():
+            core_text = text.lower().split("so that")[0]
+        elif "to" in text.lower():
+            # sometimes "to" acts like "so that" if it's late in sentence? 
+            # Risk of cutting "want to". Use rigid "so that" for now.
+            pass
+            
+        doc = self.nlp(text)
+        
+        # Overlay NER
+        if self.ner_model:
+            doc_ner = self.ner_model(text)
+            new_ents = []
+            for ent in doc_ner.ents:
+                span = doc.char_span(ent.start_char, ent.end_char, label=ent.label_)
+                if span:
+                    new_ents.append(span)
+            if new_ents:
+                try:
+                    doc.ents = new_ents
+                except:
+                    pass # Overlap conflicts
+        
+        return doc
+
 
     def _normalize_name(self, name):
         return re.sub(r'([a-z])([A-Z])', r'\1 \2', name).title().replace(" ", "")
@@ -36,23 +78,39 @@ class BaseDiagramExtractor:
                 'source_id': source_id
             })
 
-    def _add_attribute(self, class_name, attr_name, source_id):
+    def _add_attribute(self, class_name, attr_name, source_id, visibility="-", type_hint="String"):
         class_name = self._normalize_name(class_name)
         attr_name = attr_name.lower()
-        if class_name in self.found_classes and attr_name not in self.found_classes[class_name]['attributes']:
-            self.found_classes[class_name]['attributes'].append(attr_name)
-            for el in self.model_elements:
-                if el['type'] == 'Class' and el['data']['name'] == class_name:
-                    el['data']['attributes'] = self.found_classes[class_name]['attributes']
+        if class_name in self.found_classes:
+            # Check if exists
+            existing = [a['name'] for a in self.found_classes[class_name]['attributes']]
+            if attr_name not in existing:
+                attr_data = {'name': attr_name, 'visibility': visibility, 'type': type_hint}
+                self.found_classes[class_name]['attributes'].append(attr_data)
+                
+                # Update model elements
+                for el in self.model_elements:
+                    if el['type'] == 'Class' and el['data']['name'] == class_name:
+                        el['data']['attributes'] = self.found_classes[class_name]['attributes']
 
-    def _add_method(self, class_name, method_name, source_id):
+    def _add_method(self, class_name, method_name, source_id, params=None, visibility="+", return_type="void"):
         class_name = self._normalize_name(class_name)
         method_name = method_name.lower()
-        if class_name in self.found_classes and method_name not in self.found_classes[class_name]['methods']:
-            self.found_classes[class_name]['methods'].append(method_name)
-            for el in self.model_elements:
-                if el['type'] == 'Class' and el['data']['name'] == class_name:
-                    el['data']['methods'] = self.found_classes[class_name]['methods']
+        if class_name in self.found_classes:
+            existing = [m['name'] for m in self.found_classes[class_name]['methods']]
+            if method_name not in existing:
+                method_data = {
+                    'name': method_name, 
+                    'params': params if params else [], 
+                    'visibility': visibility, 
+                    'return_type': return_type
+                }
+                self.found_classes[class_name]['methods'].append(method_data)
+                
+                # Update model elements
+                for el in self.model_elements:
+                    if el['type'] == 'Class' and el['data']['name'] == class_name:
+                        el['data']['methods'] = self.found_classes[class_name]['methods']
 
     def _add_relationship(self, class_a, class_b, rel_type='-->', card_a=None, card_b=None, source_id=None):
         class_a = self._normalize_name(class_a)
@@ -73,135 +131,537 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
         self.model_elements = []
         self.found_classes = {}
-        self.found_relationships = set()
         actor_set = set()
         class_set = set()
-        # Contextual attribute/method/relationship inference
+        
         for story in stories_list:
             try:
                 text = story.get('storytext', '')
                 story_id = story.get('storyid', 0)
-                logger.info(f"Processing story {story_id}: {text[:50]}...")
-                data = {}
-                if text and isinstance(text, str):
-                    try:
-                        data = json.loads(text)
-                    except json.JSONDecodeError:
-                        pass
-                # Extract actor and class
-                actor_name = data.get('groq_output', {}).get('actor')
-                class_name = data.get('groq_output', {}).get('class')
-                # Add actor as stereotype only, not as class
-                if actor_name:
-                    actor_name = self._normalize_name(actor_name)
-                    if actor_name not in actor_set:
-                        actor_set.add(actor_name)
+                
+                # 1. Process text
+                doc = self._process_text(text)
+                
+                # Context split: "As a X, I want to Y [so that Z]"
+                # We mainly extract Classes from X and Y. Z is context (unless it mentions known actors).
+                parts = re.split(r'so that', text, flags=re.IGNORECASE)
+                main_part = parts[0]
+                context_part = parts[1] if len(parts) > 1 else ""
+
+
+                # 2. Identify Actors and Classes (Prioritize NER)
+                
+                # Get all entities from doc (which has NER overlaid)
+                all_ents = [(ent.text, ent.label_) for ent in doc.ents]
+                
+                current_actors = []
+                current_classes = []
+                
+                # Identify Actors from ANYWHERE in text (including "so that")
+                for txt, label in all_ents:
+                    norm = self._normalize_name(txt)
+                    if label == "ACTOR":
+                        current_actors.append(norm)
+
+                # Fallback: "As a [Role]" pattern
+                if not current_actors:
+                    match = re.search(r'as an? ([a-zA-Z\s]+?),? i want', text, re.IGNORECASE)
+                    if match:
+                        role = match.group(1).strip()
+                        # Clean up role (singularize, simple token cleanup)
+                        # e.g. "Inspection Staff Supervisor" -> InspectionStaffSupervisor
+                        role_clean = self._normalize_name(role)
+                        if role_clean not in current_actors:
+                            current_actors.append(role_clean)
+                        
+                        # Add to model if not generic "User" (or even if it is User?)
+                        # Yes, add it.
+
+                
+                # Identify Classes mainly from MAIN part, but also check NER in context
+                # If NER says CLASS in context, it might be valid (e.g. "ReportVersion"?)
+                # But be careful of "Talks"
+                for txt, label in all_ents:
+                    norm = self._normalize_name(txt)
+                    if label == "CLASS":
+                        if txt.lower() not in self.class_stop_list:
+                            # If it's in main part, valid
+                            if txt in main_part:
+                                current_classes.append(norm)
+                            # If it's capitalized in context part, valid?
+                            elif txt[0].isupper():
+                                current_classes.append(norm)
+
+                # Fallback: Noun chunks from Main Part Only
+                main_doc = self.nlp(main_part)
+                for token in main_doc:
+                    # Candidates for classes: Direct Objects of 'want', 'manage', 'assign', 'view', 'download'
+                    if token.dep_ in ["dobj"] and token.head.pos_ == "VERB":
+                        # Check redundancy
+                        if token.text.lower() in self.attribute_patterns: continue
+                        if token.text.lower() in self.class_stop_list: continue
+                        
+                        # Singularize for Name
+                        c_name_raw = token.text
+                        if c_name_raw.endswith("s") and not c_name_raw.endswith("ss"):
+                            c_name_raw = c_name_raw[:-1]
+                        
+                        c_name = self._normalize_name(c_name_raw)
+
+                        # Logic check: "Inspections" -> Class "Inspection"
+                        # If the word implies a task/document, it's a class.
+                        
+                        if c_name not in current_classes and c_name not in current_actors:
+                            current_classes.append(c_name)
+                    
+                    # Check for "Inspector" specifically in main part (if not found by NER)
+                    if token.text.lower() == "inspector":
+                        if "Inspector" not in current_actors: current_actors.append("Inspector")
+
+                # Check Context Part for "Inspector" fallback
+                if context_part:
+                    ctx_doc = self.nlp(context_part)
+                    for token in ctx_doc:
+                        if token.text.lower() == "inspector":
+                             if "Inspector" not in current_actors: current_actors.append("Inspector")
+
+                # Deduplicate/Merge Logic
+
+                # "Supervisor" might be "InspectionStaffSupervisor"
+                # If we have "InspectionStaffSupervisor" in actors, and "Supervisor" in classes, drop "Supervisor"
+                final_classes = []
+                for c in current_classes:
+                    is_duplicate = False
+                    for a in current_actors:
+                        if c.lower() in a.lower() and len(a) > len(c):
+                            is_duplicate = True # "Supervisor" is inside "InspectionStaffSupervisor"
+                    if not is_duplicate:
+                        final_classes.append(c)
+                current_classes = final_classes
+
+                # Add Actors
+                for actor in current_actors:
+                    if actor not in self.found_classes:
+                        # New Actor
                         self.model_elements.append({
-                            'type': 'Actor',
-                            'data': {'name': actor_name},
+                            'type': 'Class',
+                            'data': {'name': actor, 'stereotype': 'actor', 'attributes': [], 'methods': []},
                             'source_id': story_id
                         })
-                # Add class
-                if class_name:
-                    class_name = self._normalize_name(class_name)
-                    if class_name not in class_set:
-                        class_set.add(class_name)
-                        self._add_class(class_name, source_id=story_id)
-                # Add attributes and methods to class only
-                if class_name:
-                    # Use all available attributes/methods
-                    for attr in data.get('groq_output', {}).get('attributes', []):
-                        self._add_attribute(class_name, attr, story_id)
-                    for method in data.get('groq_output', {}).get('methods', []):
-                        self._add_method(class_name, method, story_id)
-                    # Contextual extraction from story text
-                    # Use regex and NLP to find likely attributes/methods
-                    # Attributes: look for 'with', 'including', 'such as', 'containing', etc.
-                    attr_matches = re.findall(r'with ([\w, ]+)', text)
-                    for match in attr_matches:
-                        for attr in re.split(r',| and ', match):
-                            attr = attr.strip()
-                            if attr:
-                                self._add_attribute(class_name, attr, story_id)
-                    # Methods: look for 'want to (\w+)', 'can (\w+)', etc.
-                    method_matches = re.findall(r'want to ([\w]+)', text)
-                    for method in method_matches:
-                        self._add_method(class_name, method, story_id)
-                # Add relationship (actor interacts with class)
-                if actor_name and class_name:
-                    # Infer relationship type and multiplicity from story context
-                    rel_type = '-->'
-                    card_a = '1'
-                    card_b = '*'
-                    # If story suggests ownership or singular, adjust multiplicity
-                    if re.search(r'has|own|register|create', text, re.IGNORECASE):
-                        card_b = '1'
-                    self._add_relationship(actor_name, class_name, rel_type, card_a, card_b, source_id=story_id)
-                # If no groq_output, fallback to NLP
-                if not data.get('groq_output'):
-                    doc = self.nlp(text)
-                    actors = []
-                    classes = []
-                    methods = []
-                    attributes = []
-                    for ent in doc.ents:
-                        if ent.label_ == "ACTOR":
-                            actors.append(ent.text)
-                        elif ent.label_ == "CLASS":
-                            classes.append(ent.text)
-                        elif ent.label_ == "METHOD":
-                            methods.append(ent.text)
-                        elif ent.label_ == "ATTRIBUTE":
-                            attributes.append(ent.text)
-                    # Add actors
-                    for actor in actors:
-                        actor_n = self._normalize_name(actor)
-                        if actor_n not in actor_set:
-                            actor_set.add(actor_n)
-                            self.model_elements.append({
-                                'type': 'Actor',
-                                'data': {'name': actor_n},
-                                'source_id': story_id
-                            })
-                    # Add classes
-                    for cls in classes:
-                        cls_n = self._normalize_name(cls)
-                        if cls_n not in class_set:
-                            class_set.add(cls_n)
-                            self._add_class(cls_n, source_id=story_id)
-                    # Add attributes/methods to first class
-                    if classes:
-                        target_class = self._normalize_name(classes[0])
-                        for attr in attributes:
-                            self._add_attribute(target_class, attr, story_id)
-                        for method in methods:
-                            self._add_method(target_class, method, story_id)
-                        # Contextual extraction from text
-                        attr_matches = re.findall(r'with ([\w, ]+)', text)
-                        for match in attr_matches:
-                            for attr in re.split(r',| and ', match):
-                                attr = attr.strip()
-                                if attr:
-                                    self._add_attribute(target_class, attr, story_id)
-                        method_matches = re.findall(r'want to ([\w]+)', text)
-                        for method in method_matches:
-                            self._add_method(target_class, method, story_id)
-                    # Add relationships
-                    if actors and classes:
-                        rel_type = '-->'
-                        card_a = '1'
-                        card_b = '*'
-                        if re.search(r'has|own|register|create', text, re.IGNORECASE):
-                            card_b = '1'
-                        self._add_relationship(self._normalize_name(actors[0]), self._normalize_name(classes[0]), rel_type, card_a, card_b, source_id=story_id)
+                        self.found_classes[actor] = {'attributes': [], 'methods': [], 'stereotype': 'actor'}
+                    else:
+                        # Existing Actor, just ensure stereotype is set/updated if needed
+                        pass
+
+                # Add Classes
+                for cls in current_classes:
+                    if cls not in actor_set: # Don't double add functionality
+                         self._add_class(cls, source_id=story_id)
+
+                # 3. Attributes/Methods from Main Part
+                subject_entity = current_actors[0] if current_actors else None
+                
+                # Resolve subject "I"
+                subject_entity = None
+                if "I" in [t.text for t in doc] or "i" in [t.text for t in doc]:
+                    if current_actors:
+                        subject_entity = current_actors[0]
+                
+                # Check explicit nsubj
+                if not subject_entity:
+                    for token in main_doc:
+                        if token.dep_ == "nsubj" and token.head.pos_ == "VERB":
+                             if token.text in current_actors:
+                                 subject_entity = token.text
+                                 break
+                
+                # Analyze verbs in main doc
+                for token in main_doc:
+                    if token.pos_ == "VERB" and token.lemma_ not in ["want", "be", "have", "can", "use", "make"]:
+                        method_name = token.text
+                        
+                        if not subject_entity: continue
+                        
+                        # Find objects (dobj + conj)
+                        objects = []
+                        for child in token.children:
+                            if child.dep_ in ["dobj", "attr"]:
+                                objects.append(child)
+                                # Traverse conjunctions
+                                cur = child
+                                while True:
+                                    found_conj = None
+                                    for gc in cur.children:
+                                        if gc.dep_ == "conj":
+                                            objects.append(gc)
+                                            found_conj = gc
+                                            break
+                                    if found_conj:
+                                        cur = found_conj
+                                    else:
+                                        break
+                        
+                        if not objects: continue
+
+                        params = []
+                        
+                        for obj_token in objects:
+                            # Construct name from compound + head
+                            # e.g. "profile picture" -> "picture" head, "profile" compound
+                            # We want "ProfilePicture"
+                            
+                            sub_compounds = [c.text for c in obj_token.children if c.dep_ == "compound"]
+                            full_name_list = sub_compounds + [obj_token.text]
+                            sub_obj = " ".join(full_name_list) # "profile picture"
+                            
+                            # Original text for attributes (with adjs etc)
+                            obj_text_subtree = "".join([c.text_with_ws for c in obj_token.subtree]).strip()
+
+                                
+                            # Check if it is an attribute
+                            is_attr = False
+                            for attr in self.attribute_patterns:
+                                # "profile picture" contains "picture"
+                                if attr in sub_obj.lower():
+                                    # Special check for "track version" -> this is a relationship, not attribute
+                                    if "version" in attr and method_name.lower() == "track":
+                                        is_attr = False
+                                        break
+
+                                    # Special check for "versions of report"
+                                    if "version" in attr and "report" in obj_text_subtree.lower():
+                                        # This is likely ReportVersion class reference
+                                        is_attr = False 
+                                        # We want to treat this as a link to ReportVersion
+                                        found_match = "ReportVersion"
+                                        # Ensure ReportVersion class exists
+                                        if "ReportVersion" not in self.found_classes:
+                                            self._add_class("ReportVersion", source_id=story_id)
+                                        
+                                        # Relationship: Report *-- ReportVersion (Composition)
+                                        # But the text says "I want to view versions...".
+                                        # So Patron ..> ReportVersion (Dependency/Usage, "view" -> Dependency)
+                                        
+                                        params.append({'name': sub_obj, 'type': "ReportVersion", 'direction': 'in'})
+                                        self._add_relationship(subject_entity, "ReportVersion", 'Dependency', source_id=story_id)
+                                        
+                                        # Implicit Composition: Report composed of Version
+                                        if "Report" in self.found_classes:
+                                            self._add_relationship("Report", "ReportVersion", "Composition", source_id=story_id)
+
+                                        break
+                                    
+                                    is_attr = True
+                                    # Clean up "my"
+                                    clean_attr = re.sub(r'\b(my|the|a|an)\b', '', sub_obj, flags=re.IGNORECASE).strip()
+                                    self._add_attribute(subject_entity, clean_attr, story_id, visibility="-", type_hint="String")
+                                    break
+                            
+                            if not is_attr:
+                                # It might be a Class Reference!
+                                # Logic to determine Relationship Type
+                                rel_type = "Dependency" # Default weak
+                                
+                                # "Assign", "Manage", "Has", "Upload", "Share" -> Association
+                                if method_name.lower() in ["assign", "manage", "create", "have", "owns", "upload", "share"]:
+                                    rel_type = "Association"
+                                    # Special Check: Assign/Share with WHO?
+                                    # If "Inspector" or "User" is in the text, and we are assigning/sharing, link them!
+                                    for actor in current_actors:
+                                        if actor != subject_entity:
+                                             self._add_relationship(subject_entity, actor, "Association", source_id=story_id)
+                                
+                                # Check for spatial prepositions => Folder containment
+                                # "upload files INTO folder", "create folder WITHIN storage"
+                                # Look at children of the verb (method_name)
+                                # Find 'prep' children
+                                for child in doc:
+                                    if child.head.text == method_name and child.dep_ == "prep":
+                                        if child.text in ["into", "within", "inside", "in"]:
+                                             # Get pobj
+                                             for grandchild in child.children:
+                                                 if grandchild.dep_ == "pobj":
+                                                     container_name = self._normalize_name(grandchild.text)
+                                                     # If container is a class, link sub_obj to container
+                                                     # e.g. upload File into Folder => Folder o-- File (Aggregation/Composition)
+                                                     # But we have subject_entity (User) doing action. 
+                                                     # Relationship: Container contains Item.
+                                                     # We have 'sub_obj' (File) and 'container_name' (Folder).
+                                                     
+                                                     # Add the container class if distinct
+                                                     if container_name != subject_entity and container_name.lower() not in self.class_stop_list:
+                                                         self._add_class(container_name, source_id=story_id)
+                                                         # Folder o-- File
+                                                         # Singularize sub_obj for better diagram
+                                                         singular_sub = sub_obj
+                                                         if singular_sub.endswith("s") and not singular_sub.endswith("ss"):
+                                                              singular_sub = singular_sub[:-1]
+                                                         
+                                                         self._add_relationship(container_name, singular_sub, "Aggregation", source_id=story_id)
+
+                                
+                                # Check for Composition/Aggregation keywords in obj_text
+                                # "list of", "collection of" -> Aggregation
+                                if "list of" in obj_text_subtree.lower() or "collection of" in obj_text_subtree.lower():
+                                    rel_type = "Aggregation"
+                                
+                                # Try to find matching class
+                                found_match = None
+                                singular_obj = sub_obj
+                                if singular_obj.endswith("s"): singular_obj = singular_obj[:-1]
+                                
+                                for c in current_classes:
+                                    if c.lower() in sub_obj.lower() or c.lower() == singular_obj.lower():
+                                        found_match = c
+                                        break
+                                        
+                                if found_match:
+                                    # It's a relationship
+                                    params.append({'name': sub_obj, 'type': found_match, 'direction': 'in'})
+                                    self._add_relationship(subject_entity, found_match, rel_type, source_id=story_id)
+                                else:
+                                    # Check if we should create a Class on the fly
+                                    # Heuristic: Uppercase or Plural of a Noun
+                                    # "Inspections" -> Inspection
+                                    is_potential_class = False
+                                    potential_name = singular_obj
+                                    
+                                    # If capitalized or endswith 's' and length > 2 avoiding trivial words
+                                    if (singular_obj[0].isupper() or len(singular_obj) > 2) and singular_obj.lower() not in self.attribute_patterns and singular_obj.lower() not in self.class_stop_list:
+                                        # Special case: "Inspections"
+                                        if method_name.lower() in ["assign", "manage", "create", "upload", "download", "share", "view"]:
+                                             is_potential_class = True
+
+                                        rel_type = "Association" # Stronger
+                                        
+                                        if method_name.lower() in ["view", "download"]:
+                                            rel_type = "Dependency"
+                                    
+                                    if is_potential_class:
+                                        # Create new Class
+                                        potential_name = self._normalize_name(potential_name)
+                                        if potential_name not in self.found_classes:
+                                            self._add_class(potential_name, source_id=story_id)
+                                        
+                                        params.append({'name': sub_obj, 'type': potential_name, 'direction': 'in'})
+                                        self._add_relationship(subject_entity, potential_name, rel_type, source_id=story_id)
+                                    else:
+                                        # Just a param
+                                        params.append({'name': sub_obj, 'type': 'String', 'direction': 'in'})
+
+                        # --- ADVANCED LOGIC: Search, Permissions, Versioning ---
+                        
+                        # 1. Search Logic: "search for files by name"
+                        if method_name.lower() in ["search", "locate", "find"]:
+                             # Return type is the object being searched (dobj)
+                             # "search for files" -> files
+                             return_type = "List<String>"
+                             # Try to find the object
+                             for child in token.children:
+                                 if child.dep_ == "prep" and child.text == "for":
+                                     for gchild in child.children:
+                                         if gchild.dep_ == "pobj":
+                                              found_type = self._normalize_name(gchild.text)
+                                              return_type = f"List<{found_type}>"
+                             
+                             # Parameters: "by name or content"
+                             # Usually attached as prep "by"
+                             search_params = []
+                             for child in token.children:
+                                 if child.dep_ == "prep" and child.text == "by":
+                                     # Get children of 'by' (pobj + conj)
+                                     for gchild in child.children:
+                                         if gchild.dep_ in ["pobj", "conj", "dobj"]:
+                                              # Recurse for conj
+                                              search_params.append({'name': gchild.text, 'type': 'String', 'direction': 'in'})
+                                              for ggchild in gchild.children:
+                                                  if ggchild.dep_ == "conj":
+                                                      search_params.append({'name': ggchild.text, 'type': 'String', 'direction': 'in'})
+                             
+                             if search_params:
+                                 params = search_params
+                             
+                             # Add method
+                             self._add_method(subject_entity, method_name, story_id, params, visibility="+", return_type=return_type)
+
+                             # NLP RELATIONSHIP: User depends on the object they are searching for
+                             # If we found a type (e.g. Files), add dependency
+                             if "List<" in return_type:
+                                 target_type = return_type.replace("List<", "").replace(">", "")
+                                 if target_type not in ["String", "int", "void"]:
+                                     self._add_relationship(subject_entity, target_type, "Dependency", source_id=story_id)
+
+                             continue # Skip default add
+                        
+                        # 2. Permissions Logic: "set permissions (Read-Only or Edit)"
+                        if "permission" in obj_text_subtree.lower() or method_name.lower() == "control":
+                             # Check for parenthetical values in text
+                             perm_match = re.search(r'\((.*?)\)', text)
+                             if perm_match:
+                                 # (Read-Only or Edit)
+                                 values = perm_match.group(1)
+                                 # Add as a comment or note (PlantUML usually requires a Note, but here we can add a constrained param)
+                                 params.append({'name': 'permissions', 'type': f"Enum{{{values}}}", 'direction': 'in'})
+                        
+                        # Add method to Actor
+                        self._add_method(subject_entity, method_name, story_id, params, visibility="+", return_type="void") 
+                        
+                        # 3. Versioning Logic: "track version history"
+                        # "track" verb. object "history". attribute "version"
+                        if method_name.lower() == "track" and "history" in obj_text_subtree.lower():
+                            # Implies File *-- Version
+                            # Add "Version" class
+                            self._add_class("Version", source_id=story_id)
+                            self._add_attribute("Version", "timestamp", story_id)
+                            self._add_attribute("Version", "author", story_id)
+                            self._add_attribute("Version", "changeLog", story_id)
+                            
+                            # Ensure File exists (should be found from "for files")
+                            # "history for files"
+                            for child in token.children: # track
+                                for gchild in child.children: # history -> prep -> files
+                                     if gchild.dep_ == "pobj" and gchild.head.text == "for":
+                                          file_class = self._normalize_name(gchild.text)
+                                          self._add_class(file_class, source_id=story_id)
+                                          # File *-- Version
+                                          self._add_relationship(file_class, "Version", "Composition", source_id=story_id)
+                                          # NLP RELATIONSHIP: User -> File (Dependency - tracking history OF file)
+                                          self._add_relationship(subject_entity, file_class, "Dependency", source_id=story_id)
+
+                            # Add default Version operations
+                            self._add_method("Version", "getDetails", story_id, [], visibility="+", return_type="String")
+                            self._add_method("Version", "restore", story_id, [], visibility="+", return_type="void")
+
+                            # NLP RELATIONSHIP: User -> Version (Association - User tracks Version)
+                            self._add_relationship(subject_entity, "Version", "Association", source_id=story_id)
+                            
+                            # Add 'revert' operation if context implies
+                            if "revert" in text.lower():
+                                self._add_method(subject_entity, "revert", story_id, [{'name': 'toVersion', 'type': 'Version'}], visibility="+")
+
+                        # 4. Storage Management Logic: "Trash", "Recycle Bin", "Move"
+                        if "trash" in text.lower() or "recycle bin" in text.lower():
+                            # Extract Trash/Recycle Bin as a class
+                            trash_name = "RecycleBin" if "recycle bin" in text.lower() else "Trash"
+                            self._add_class(trash_name, source_id=story_id)
+                            # User uses Trash (to recover/delete)
+                            self._add_relationship(subject_entity, trash_name, "Dependency", source_id=story_id)
+                            
+                            if "recover" in method_name.lower():
+                                self._add_method(subject_entity, "recover", story_id, [{'name': 'files', 'type': 'File'}, {'name': 'from', 'type': trash_name}], visibility="+")
+                                # Trash has 'restore' potentially
+                                self._add_method(trash_name, "restore", story_id, [{'name': 'file', 'type': 'File'}], visibility="+")
+                        
+                        if method_name.lower() == "move":
+                             # "move file from folder to folder"
+                             # Dependency on Folder
+                             self._add_relationship(subject_entity, "Folder", "Dependency", source_id=story_id)
+                             # Ensure Folder class exists
+                             if "Folder" not in self.found_classes:
+                                 self._add_class("Folder", source_id=story_id)
+
+                        # Alert Logic: "alert user when..."
+                        if method_name.lower() == "alert":
+                            # System alerts User
+                            if subject_entity == "System": # Should be System
+                                 for actor in current_actors:
+                                     if actor != "System":
+                                         self._add_relationship("System", actor, "Dependency", source_id=story_id)
+                                         params.append({'name': 'user', 'type': actor, 'direction': 'in'})
+                                         # Add condition param if found
+                                         if "capacity" in text.lower():
+                                              params.append({'name': 'condition', 'type': 'String', 'direction': 'in'})
+
+                # 4. Relationships & Inheritance
+                # Actor uses Class
+                if subject_entity and current_classes:
+                    for cls in current_classes:
+                        if cls != subject_entity:
+                             # Base generic connection? We might have added specific ones above.
+                             pass
+
+                # Explicit Inheritance: All Actors inherit from "User"
+                # Check if User already exists globally or in current scope
+                if "User" not in self.found_classes:
+                    self.model_elements.append({
+                        'type': 'Class',
+                        'data': {'name': 'User', 'stereotype': 'actor', 'attributes': [], 'methods': []},
+                        'source_id': story_id
+                    })
+                    self.found_classes['User'] = {'attributes': [], 'methods': [], 'stereotype': 'actor'}
+                
+                for actor in current_actors:
+                    if actor != "User" and actor != "System":
+                        self._add_relationship(actor, "User", "Inheritance", source_id=story_id)
+
             except Exception as e:
-                logger.error(f"Class diagram extraction error for story {story_id}: {e}")
+                logger.error(f"Class extraction error: {e}")
                 continue
-        logger.info(f"Extracted {len(self.model_elements)} elements for class diagram")
+
+                
+        # Post-Processing: Connect specific classes
+        
+        # New Post-Processing: Add default attributes to Actors if missing
+        for cls_name, cls_data in self.found_classes.items():
+            # Check if it is an actor (inheritance to User or stereotype)
+            is_actor = cls_data.get('stereotype') == 'actor'
+            
+            if not cls_data['attributes']:
+                if is_actor:
+                     # Inject defaults for Actors
+                     defaults = ["id", "name", "email"]
+                     for d in defaults:
+                         self._add_attribute(cls_name, d, source_id=0, visibility="-", type_hint="String")
+                     
+                     # Check if Actor has methods. If not, add actor-specific defaults?
+                     if not cls_data['methods']:
+                         if "inspector" in cls_name.lower():
+                             self._add_method(cls_name, "receiveWork", 0, params=[{'name':'assignment', 'type':'Inspection', 'direction':'in'}], visibility="+", return_type="void")
+                             self._add_method(cls_name, "updateStatus", 0, visibility="+", return_type="void")
+
+                elif not is_actor:
+                    # Passive Classes / Objects
+                    # Domain Heuristics
+                    defaults = []
+                    cn_lower = cls_name.lower()
+                    
+                    if "version" in cn_lower:
+                        defaults = ["versionNumber", "changeLog", "releaseDate"]
+                    elif "report" in cn_lower or "article" in cn_lower:
+                        defaults = ["title", "content", "publishedDate", "author"]
+                    elif "inspection" in cn_lower:
+                        defaults = ["status", "scheduledDate", "result", "location"]
+                    elif "file" in cn_lower:
+                        defaults = ["name", "size", "type", "path"]
+                    elif "folder" in cn_lower:
+                        defaults = ["name", "path", "itemCount"]
+                    elif "link" in cn_lower:
+                        defaults = ["url", "expiryDate", "permissions"]
+                    else:
+                        defaults = ["id", "description"]
+                    
+                    for d in defaults:
+                        self._add_attribute(cls_name, d, source_id=0, visibility="-", type_hint="String")
+                    
+                    # Add refined operations for Entities
+                    ops = []
+                    if "version" in cn_lower:
+                        ops = ["download", "restore", "diff"]
+                    elif "inspection" in cn_lower:
+                        ops = ["complete", "cancel", "updateResult"]
+                    elif "report" in cn_lower:
+                         ops = ["publish", "archive", "export", "save", "delete"]
+                    elif "file" in cn_lower:
+                         ops = ["open", "edit", "share", "download"]
+                    elif "folder" in cn_lower:
+                         ops = ["addFile", "removeFile", "listContents"]
+                    else:
+                        ops = ["save", "delete"]
+
+                    for op in ops:
+                        self._add_method(cls_name, op, 0, visibility="+", return_type="void")
+        
         return self.model_elements
-
-
-
 
 class UseCaseDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
@@ -229,31 +689,54 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
                     data = json.loads(text)
                 except json.JSONDecodeError:
                     pass
+            
+            # 1. Try to get data from the Model Output (Primary)
             if 'groq_output' in data and 'use_case' in data['groq_output']:
-                if 'actor' in data['groq_output']:
-                    self._add_class(data['groq_output']['actor'], stereotype="actor", source_id=story_id)
+                uc_name = data['groq_output']['use_case']
+                actor_name = data['groq_output'].get('actor')
+                
+                if actor_name:
+                    self._add_class(actor_name, stereotype="actor", source_id=story_id)
+                    
                 self.model_elements.append({
                     'type': 'UseCase',
-                    'data': {'name': data['groq_output']['use_case']},
+                    'data': {'name': uc_name},  # Keep original spaces
                     'source_id': story_id
                 })
-                if 'actor' in data['groq_output']:
-                    self._add_relationship(data['groq_output']['actor'], data['groq_output']['use_case'], "-->", source_id=story_id)
-            else:
-                doc = self.nlp(text)
+                
+                if actor_name:
+                    self._add_relationship(actor_name, uc_name, "-->", source_id=story_id)
+            else:   # Fallback to regex/NLP (Secondary)
+                doc = self._process_text(text)
                 actors = []
                 for ent in doc.ents:
                     if ent.label_ == "ACTOR":
+
                         actors.append(ent.text)
                         self._add_class(ent.text, stereotype="actor", source_id=story_id)
-                match = re.search(r"I want to (\w+\s*\w*)", text)
+                
+                # If no actors found by NER, check for "As a X" pattern
+                if not actors:
+                    actor_match = re.search(r"As an? (.*?)(,|$)", text, re.IGNORECASE)
+                    if actor_match:
+                        actor_clean = actor_match.group(1).strip()
+                        actors.append(actor_clean)
+                        self._add_class(actor_clean, stereotype="actor", source_id=story_id)
+
+                # IMPROVED REGEX (Capture full phrase after "want to")
+                # Matches "want to [everything until comma or period]"
+                match = re.search(r"want to\s+(.*?)(?:,|$|\.)", text, re.IGNORECASE)
+                
                 if match:
-                    use_case_name = match.group(1).replace(" ", "")
+                    # Strip whitespace but keep internal spaces
+                    use_case_name = match.group(1).strip().capitalize()
+                    
                     self.model_elements.append({
                         'type': 'UseCase',
                         'data': {'name': use_case_name},
                         'source_id': story_id
                     })
+                    
                     for actor in actors:
                         self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
         except Exception as e:
@@ -299,19 +782,35 @@ class SequenceDiagramExtractor(BaseDiagramExtractor):
                         'source_id': story_id
                     })
             else:
-                doc = self.nlp(text)
+                doc = self._process_text(text)
+            
+                # Find all potential objects (Actors or Classes)
+
                 participants = [ent.text for ent in doc.ents if ent.label_ in ["ACTOR", "CLASS"]]
-                if not participants:
-                    participants = ["Customer", "System"]
-                if "want to" in text.lower():
+                
+                sender = "User"
+                receiver = "System"
+                
+                # First entity is sender. If there is a second entity, it's the receiver.
+                if participants:
                     sender = participants[0]
-                    receiver = participants[-1] if len(participants) > 1 else "System"
-                    message = text.split("want to")[-1].split(".")[0].strip()
-                    self.model_elements.append({
-                        'type': 'SequenceMessage',
-                        'data': {'sender': sender, 'receiver': receiver, 'message': message},
-                        'source_id': story_id
-                    })
+                    if len(participants) > 1:
+                        receiver = participants[1]
+                
+                # Extract the message (action)
+                message = "process request" # Default
+                if "want to" in text.lower():
+                    # Get text after 'want to'
+                    parts = re.split(r"want to", text, flags=re.IGNORECASE)
+                    if len(parts) > 1:
+                        # Clean up: remove trailing punctuation
+                        message = parts[1].split('.')[0].split(',')[0].strip()
+                
+                self.model_elements.append({
+                    'type': 'SequenceMessage',
+                    'data': {'sender': sender, 'receiver': receiver, 'message': message},
+                    'source_id': story_id
+                })
         except Exception as e:
             logger.error(f"Sequence extraction error for story {story_id}: {e}")
 
@@ -353,17 +852,22 @@ class ActivityDiagramExtractor(BaseDiagramExtractor):
                         'data': {'lane': lanes[0], 'step': step},
                         'source_id': story_id
                     })
-            else:
-                doc = self.nlp(text)
+            else:   # FALLBACK LOGIC (when groq_output is missing)
+                doc = self._process_text(text)
                 lanes = [ent.text for ent in doc.ents if ent.label_ == "ACTOR"]
+
                 if not lanes:
-                    lanes = ["Customer"]
+                    lanes = ["User"] # Default to User if no actor found
+                
                 current_lane = lanes[0]
-                steps = re.findall(r"I want to (\w+\s*\w*)", text)
+                
+                # IMPROVED REGEX (Capture everything after "want to" until a comma or period)
+                steps = re.findall(r"want to\s+(.*?)(?:,|$|\.)", text, re.IGNORECASE)
+                
                 for step in steps:
                     self.model_elements.append({
                         'type': 'ActivityStep',
-                        'data': {'lane': current_lane, 'step': step},
+                        'data': {'lane': current_lane, 'step': step.strip().capitalize()},
                         'source_id': story_id
                     })
         except Exception as e:
