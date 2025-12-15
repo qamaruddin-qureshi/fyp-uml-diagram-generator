@@ -1,0 +1,22 @@
+@startuml
+participant "Account" as Account
+participant "Category" as Category
+participant "Customer" as Customer
+participant "Order" as Order
+participant "OrderHistory" as OrderHistory
+participant "Product" as Product
+participant "System" as System
+participant "User" as User
+participant "account" as account
+Customer -> Account: register Account with emailAddress and password
+Customer -> account: login to my account
+Customer -> System: view Product details by category
+Customer -> System: add a Product to the ShoppingCart
+Customer -> System: update ShoppingCart Product quantity
+Customer -> Order: place an Order with shippingAddress
+Customer -> OrderHistory: view my OrderHistory for orderDate and totalAmount
+Customer -> System: manage my Addresses (add
+Product -> System: manage a Product (add
+Category -> System: manage a Category (create
+User -> System: view Order details
+@enduml

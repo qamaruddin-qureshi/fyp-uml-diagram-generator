@@ -1,0 +1,15 @@
+@startuml
+left to right direction
+actor "SalesRep" as SalesRep
+actor "Manager" as Manager
+rectangle System {
+usecase "Create a new contact record for a potential client" as Createanewcontactrecordforapotentialclient
+usecase "Log an activity (e" as Loganactivitye
+usecase "Create a new sales opportunity (lead) and track its value and stage in the pipeline" as Createanewsalesopportunityleadandtrackitsvalueandstageinthepipeline
+usecase "View a dashboard of the current sales pipeline and total revenue forecast" as Viewadashboardofthecurrentsalespipelineandtotalrevenueforecast
+}
+SalesRep --> Createanewcontactrecordforapotentialclient
+SalesRep --> Loganactivitye
+SalesRep --> Createanewsalesopportunityleadandtrackitsvalueandstageinthepipeline
+Manager --> Viewadashboardofthecurrentsalespipelineandtotalrevenueforecast
+@enduml

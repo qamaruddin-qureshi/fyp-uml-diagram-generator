@@ -1,0 +1,16 @@
+@startuml
+partition Manager {
+:Assign ownership of a lead to a specific sales rep;
+}
+partition Sales Rep {
+:Be able to set a follow-up reminder for a specific contact;
+:View all contacts associated with a specific company (account);
+:Mark an opportunity as 'closed won' when a deal is finalized;
+}
+partition System {
+:Send an automated welcome email to a new contact when they are entered into the system;
+}
+partition User {
+:Be able to export a list of leads for a specific campaign;
+}
+@enduml

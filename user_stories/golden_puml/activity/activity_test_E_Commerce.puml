@@ -1,0 +1,17 @@
+@startuml
+partition Customer {
+:Register account with emailaddress and password;
+:Login to my account;
+:View product details by category;
+:Add a product to the shoppingcart;
+:Update shoppingcart product quantity;
+:Place an order with shippingaddress;
+:View my orderhistory for orderdate and totalamount;
+:Manage my addresses (add;
+}
+partition User {
+:Manage a product (add;
+:Manage a category (create;
+:View order details;
+}
+@enduml

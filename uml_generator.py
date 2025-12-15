@@ -88,7 +88,11 @@ class DiagramGenerator:
 
         # 3. Define Use Cases with Aliases (inside rectangle)
         puml_code.append("rectangle System {")
-        for safe_id, display_name in usecase_definitions.items():
+        for safe_id, display_name in usecase_definitions.items(): # Python 3.7+ preserves insertion order. Elements come from list. Should be stable. But sorting is safer?
+            # Keeping insertion order usually matches story order which is nice.
+            # But let's leave it unless it proves unstable. Use Case passed most tests.
+            # Actually, Use Case passed? "Original_Inspector_System" Use Case PASS.
+            # So Use Case is likely stable.
             puml_code.append(f'usecase "{display_name}" as {safe_id}')
         puml_code.append("}")
 
@@ -142,7 +146,7 @@ class DiagramGenerator:
             participants.add(el['data']['receiver'])
 
         # Define participants with quotes to handle spaces
-        for participant in participants:
+        for participant in sorted(list(participants)):
             puml_code.append(f'participant "{participant}" as {self._format_class_name(participant)}')
 
         # Generate messages using the aliases
@@ -184,7 +188,7 @@ class DiagramGenerator:
         lanes = set()
         for el in [el for el in elements if el['type'] == 'ActivityStep']:
             lanes.add(el['data']['lane'])
-        for lane in lanes:
+        for lane in sorted(list(lanes)):
             puml_code.append(f"partition {lane} {{")
             for el in [el for el in elements if el['type'] == 'ActivityStep' and el['data']['lane'] == lane]:
                 puml_code.append(f":{el['data']['step']};")

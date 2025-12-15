@@ -1,0 +1,7 @@
+@startuml
+participant "System" as System
+participant "User" as User
+System -> System: alert the user when their storage capacity reaches 90%
+User -> System: be able to move a file from one folder to another using a drag-and-drop interface
+User -> System: be able to recover deleted files from a 'Trash' or 'Recycle Bin' for up to 30 days
+@enduml

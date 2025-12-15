@@ -141,7 +141,10 @@ static/
 repro_puml/*.puml
 adv_puml/*.puml
 test_puml/*.puml
-user_stories/output_puml/*.puml
+user_stories/output_puml/activity/*.puml
+user_stories/output_puml/class/*.puml
+user_stories/output_puml/sequence/*.puml
+user_stories/output_puml/use_case/*.puml
 *.plantuml
 *.svg
 *.png
