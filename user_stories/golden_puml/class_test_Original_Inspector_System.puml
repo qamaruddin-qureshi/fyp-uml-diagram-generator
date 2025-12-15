@@ -69,12 +69,12 @@ class "ReportVersion" as ReportVersion  {
   +diff() : void
 }
 Researcher ..> Report
-Researcher --|> User
 InspectionStaffSupervisor --> Inspector
 InspectionStaffSupervisor --> Inspection
-InspectionStaffSupervisor --|> User
-Inspector --|> User
 Patron ..> ReportVersion
 Report *-- ReportVersion
+Researcher --|> User
+InspectionStaffSupervisor --|> User
+Inspector --|> User
 Patron --|> User
 @enduml

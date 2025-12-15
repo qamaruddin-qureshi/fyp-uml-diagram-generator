@@ -25,14 +25,6 @@ class "Interaction" as Interaction  {
   +save() : void
   +delete() : void
 }
-class "User" as User <<actor>> {
-  -id : String
-  -name : String
-  -email : String
-  ..
-  +login() : void
-  +logout() : void
-}
 class "Account" as Account  {
   -name : String
   -industry : String
@@ -85,12 +77,10 @@ class "Dashboard" as Dashboard  {
 }
 SalesRep --> Record
 SalesRep ..> Interaction
-SalesRep --|> User
 SalesRep ..> Activity
 SalesRep --> Activity
 Activity --> Contact
 Activity --> Account
 SalesRep --> Opportunity
 Manager ..> Dashboard
-Manager --|> User
 @enduml

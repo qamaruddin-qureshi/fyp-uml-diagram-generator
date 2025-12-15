@@ -19,14 +19,6 @@ class "Account" as Account  {
   +save() : void
   +delete() : void
 }
-class "User" as User <<actor>> {
-  -id : String
-  -name : String
-  -email : String
-  ..
-  +login() : void
-  +logout() : void
-}
 class "Detail" as Detail  {
   -id : String
   -description : String
@@ -84,7 +76,6 @@ class "Category" as Category  {
   +save() : void
 }
 Customer ..> Account
-Customer --|> User
 Customer ..> Detail
 Customer ..> Product
 Customer ..> Order
@@ -92,7 +83,6 @@ Customer ..> OrderHistory
 Customer ..> Address
 Administrator --> Product
 Administrator ..> Product
-Administrator --|> User
 Administrator --> Category
 Administrator ..> Category
 Administrator ..> Detail

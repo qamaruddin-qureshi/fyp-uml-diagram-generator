@@ -77,6 +77,7 @@ class BaseDiagramExtractor:
         name = self._normalize_name(name)
         # print(f"DEBUG: Adding class {name}")
         if name not in self.found_classes:
+
             self.found_classes[name] = {'attributes': [], 'methods': [], 'stereotype': stereotype}
             self.model_elements.append({
                 'type': 'Class',
@@ -178,6 +179,7 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                     role_clean = self._normalize_name(role)
                     if role_clean not in current_actors:
                         current_actors.append(role_clean)
+                        # print(f"DEBUG: Found Actor via Regex: {role_clean}")
                     
                     # Also ensure it's in the model
                     # But we usually add actors at line 249.
@@ -246,6 +248,8 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                 # Add Actors
                 for actor in current_actors:
                     if actor not in self.found_classes:
+
+
                         # New Actor
                         self.model_elements.append({
                             'type': 'Class',
@@ -647,19 +651,9 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                              # Base generic connection? We might have added specific ones above.
                              pass
 
-                # Explicit Inheritance: All Actors inherit from "User"
-                # Check if User already exists globally or in current scope
-                if "User" not in self.found_classes:
-                    self.model_elements.append({
-                        'type': 'Class',
-                        'data': {'name': 'User', 'stereotype': 'actor', 'attributes': [], 'methods': []},
-                        'source_id': story_id
-                    })
-                    self.found_classes['User'] = {'attributes': [], 'methods': [], 'stereotype': 'actor'}
-                
-                for actor in current_actors:
-                    if actor != "User" and actor != "System":
-                        self._add_relationship(actor, "User", "Inheritance", source_id=story_id)
+                # Explicit Inheritance REMOVED from per-story loop.
+                # Moved to Post-Processing to only apply if "User" actor actually exists in the stories.
+
 
             except Exception as e:
                 logger.error(f"Class extraction error: {e}")
@@ -667,6 +661,19 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
 
                 
         # Post-Processing: Connect specific classes
+        
+        # Dynamic Inheritance: If "User" actor was found in ANY story, make all other actors inherit from it.
+        # If "User" was NOT found (e.g. CRM/Ecommerce), do NOT force it.
+        if "User" in self.found_classes:
+            for cls_name, cls_data in self.found_classes.items():
+                if cls_data.get('stereotype') == 'actor' and cls_name != "User" and cls_name != "System":
+                    # Check if relationship already exists? _add_relationship handles duplication check but we need source_id?
+                    # We can use 0 or the first source_id of the class.
+                    # We don't store source_id in found_classes directly, but we can assume generic 0 or find it.
+                    # Actually _add_relationship appends to model_elements.
+                    # Check if already linked? (Likely not, since we removed the per-story logic).
+                    self._add_relationship(cls_name, "User", "Inheritance", source_id=0) # source_id 0 for system-inferred
+
         
         # New Post-Processing: Add default attributes to Actors if missing
         for cls_name, cls_data in self.found_classes.items():
