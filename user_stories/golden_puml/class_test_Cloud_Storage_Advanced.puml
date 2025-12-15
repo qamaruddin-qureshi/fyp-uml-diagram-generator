@@ -1,0 +1,52 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "User" as User <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +set(in "permissions" : Permission, in "permissions" : Enum{Read-Only or Edit}) : void
+  +control(in "access" : String, in "permissions" : Enum{Read-Only or Edit}) : void
+  +track(in "version history" : String) : void
+  +revert(in "toVersion" : Version) : void
+  +locate(in "documents" : Document) : List<String>
+}
+class "Permission" as Permission  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Version" as Version  {
+  -timestamp : String
+  -author : String
+  -changelog : String
+  ..
+  +getdetails() : String
+  +restore() : void
+}
+class "Files" as Files  {
+  -name : String
+  -size : String
+  -type : String
+  -path : String
+  ..
+  +open() : void
+  +edit() : void
+  +share() : void
+  +download() : void
+}
+class "Document" as Document  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+User ..> Permission
+Files *-- Version
+User ..> Files
+User --> Version
+User ..> Document
+@enduml

@@ -1,0 +1,42 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "User" as User <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +create(in "folder" : Folder) : void
+  +organize(in "files" : File) : void
+  +upload(in "files" : File) : void
+  +back(in "data" : String) : void
+  +download(in "file" : File, in "folder" : Folder) : void
+  +access(in "it" : String) : void
+  +share(in "file" : File) : void
+  +edit(in "it" : String) : void
+}
+class "Folder" as Folder  {
+  -name : String
+  -path : String
+  -itemcount : String
+  ..
+  +addfile() : void
+  +removefile() : void
+  +listcontents() : void
+}
+class "File" as File  {
+  -name : String
+  -size : String
+  -type : String
+  -path : String
+  ..
+  +open() : void
+  +edit() : void
+  +share() : void
+  +download() : void
+}
+User --> Folder
+User ..> File
+Folder o-- File
+User --> File
+User ..> Folder
+@enduml
