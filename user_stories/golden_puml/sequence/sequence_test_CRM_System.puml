@@ -1,0 +1,10 @@
+@startuml
+participant "Manager" as Manager
+participant "Sales Rep" as Sales_Rep
+participant "System" as System
+participant "account" as account
+Sales_Rep -> System: create a new contact record for a potential client
+Sales_Rep -> account: log an activity (e
+Sales_Rep -> System: create a new sales opportunity (lead) and track its value and stage in the pipeline
+Manager -> System: view a dashboard of the current sales pipeline and total revenue forecast
+@enduml

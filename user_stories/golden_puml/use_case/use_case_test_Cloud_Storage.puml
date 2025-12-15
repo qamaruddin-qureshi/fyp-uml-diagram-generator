@@ -1,0 +1,14 @@
+@startuml
+left to right direction
+actor "User" as User
+rectangle System {
+usecase "Create a new folder within my cloud storage" as Createanewfolderwithinmycloudstorage
+usecase "Be able to upload files from my computer into a specific folder" as Beabletouploadfilesfrommycomputerintoaspecificfolder
+usecase "Be able to download a file or an entire folder to my local device" as Beabletodownloadafileoranentirefoldertomylocaldevice
+usecase "Be able to share a file with another user via a secure link" as Beabletoshareafilewithanotheruserviaasecurelink
+}
+User --> Createanewfolderwithinmycloudstorage
+User --> Beabletouploadfilesfrommycomputerintoaspecificfolder
+User --> Beabletodownloadafileoranentirefoldertomylocaldevice
+User --> Beabletoshareafilewithanotheruserviaasecurelink
+@enduml

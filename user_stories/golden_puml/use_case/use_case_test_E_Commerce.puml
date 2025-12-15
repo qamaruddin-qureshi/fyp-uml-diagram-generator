@@ -1,0 +1,29 @@
+@startuml
+left to right direction
+actor "Customer" as Customer
+actor "Administrator" as Administrator
+rectangle System {
+usecase "Register account with emailaddress and password" as Registeraccountwithemailaddressandpassword
+usecase "Login to my account" as Logintomyaccount
+usecase "View product details by category" as Viewproductdetailsbycategory
+usecase "Add a product to the shoppingcart" as Addaproducttotheshoppingcart
+usecase "Update shoppingcart product quantity" as Updateshoppingcartproductquantity
+usecase "Place an order with shippingaddress" as Placeanorderwithshippingaddress
+usecase "View my orderhistory for orderdate and totalamount" as Viewmyorderhistoryfororderdateandtotalamount
+usecase "Manage my addresses (add" as Managemyaddressesadd
+usecase "Manage a product (add" as Manageaproductadd
+usecase "Manage a category (create" as Manageacategorycreate
+usecase "View order details" as Vieworderdetails
+}
+Customer --> Registeraccountwithemailaddressandpassword
+Customer --> Logintomyaccount
+Customer --> Viewproductdetailsbycategory
+Customer --> Addaproducttotheshoppingcart
+Customer --> Updateshoppingcartproductquantity
+Customer --> Placeanorderwithshippingaddress
+Customer --> Viewmyorderhistoryfororderdateandtotalamount
+Customer --> Managemyaddressesadd
+Administrator --> Manageaproductadd
+Administrator --> Manageacategorycreate
+Administrator --> Vieworderdetails
+@enduml

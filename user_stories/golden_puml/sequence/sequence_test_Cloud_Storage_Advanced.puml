@@ -1,0 +1,8 @@
+@startuml
+participant "System" as System
+participant "User" as User
+participant "content" as content
+User -> System: set permissions (Read-Only or Edit) on a shared file
+User -> System: process request
+User -> content: be able to search for files by name or content keywords
+@enduml

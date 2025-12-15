@@ -1,0 +1,17 @@
+@startuml
+left to right direction
+actor "Researcher" as Researcher
+actor "User" as User
+actor "InspectionStaffSupervisor" as InspectionStaffSupervisor
+actor "Patron" as Patron
+rectangle System {
+usecase "Download reports" as Downloadreports
+usecase "Update my profile picture and name so my teammates recognize me" as Updatemyprofilepictureandnamesomyteammatesrecognizeme
+usecase "Assign inspections" as Assigninspections
+usecase "View multiple versions of a report/dataset to get both timely and historical information" as Viewmultipleversionsofareportdatasettogetbothtimelyandhistoricalinformation
+}
+Researcher --> Downloadreports
+User --> Updatemyprofilepictureandnamesomyteammatesrecognizeme
+InspectionStaffSupervisor --> Assigninspections
+Patron --> Viewmultipleversionsofareportdatasettogetbothtimelyandhistoricalinformation
+@enduml

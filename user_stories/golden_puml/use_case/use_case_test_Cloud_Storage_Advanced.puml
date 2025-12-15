@@ -1,0 +1,10 @@
+@startuml
+left to right direction
+actor "User" as User
+rectangle System {
+usecase "Set permissions (read-only or edit) on a shared file" as Setpermissionsreadonlyoreditonasharedfile
+usecase "Be able to search for files by name or content keywords" as Beabletosearchforfilesbynameorcontentkeywords
+}
+User --> Setpermissionsreadonlyoreditonasharedfile
+User --> Beabletosearchforfilesbynameorcontentkeywords
+@enduml

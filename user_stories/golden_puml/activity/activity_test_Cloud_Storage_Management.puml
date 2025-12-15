@@ -1,0 +1,9 @@
+@startuml
+partition System {
+:Alert the user when their storage capacity reaches 90%;
+}
+partition User {
+:Be able to move a file from one folder to another using a drag-and-drop interface;
+:Be able to recover deleted files from a 'trash' or 'recycle bin' for up to 30 days;
+}
+@enduml

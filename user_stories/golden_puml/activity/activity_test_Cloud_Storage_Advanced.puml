@@ -1,0 +1,6 @@
+@startuml
+partition User {
+:Set permissions (read-only or edit) on a shared file;
+:Be able to search for files by name or content keywords;
+}
+@enduml

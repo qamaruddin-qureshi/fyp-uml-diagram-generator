@@ -12,7 +12,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from uml_extractors import ClassDiagramExtractor
+from uml_extractors import ClassDiagramExtractor, UseCaseDiagramExtractor, SequenceDiagramExtractor, ActivityDiagramExtractor
 from uml_generator import DiagramGenerator
 
 # Configure logging
@@ -24,6 +24,16 @@ GOLDEN_DIR = os.path.join(current_dir, "golden_puml")
 OUTPUT_DIR = os.path.join(current_dir, "output_puml")
 
 # --- TEST DATA ---
+# (TEST_SUITES dictionary is preserved in the file content, skipping re-definition for brevity in tool call if possible, 
+# but replace_file_content requires replacing the TARGET block. I will avoid touching TEST_SUITES and only replace the verification logic below it if I can targeting line ranges.)
+
+# Since TEST_SUITES is large, I will target the imports and the verify_suite function separately or use multi-replace?
+# The tool allow replace_file_content for single contiguous block.
+# Imports are at the top. Function is at the bottom.
+# I should use multi_replace.
+
+# Let's switch to multi_replace.
+
 
 TEST_SUITES = {
     "Original_Inspector_System": [
@@ -94,63 +104,113 @@ def verify_suite(suite_name, stories, update_gold=False):
         except:
             pass
 
-    # 2. Extract
-    extractor = ClassDiagramExtractor(nlp_standard, ner_model=nlp_ner)
-    elements = extractor.extract(stories)
-
-    # 3. Generate Diagram
+    # Extended Regression: Verify ALL diagram types
+    extractors = {
+        "class": ClassDiagramExtractor,
+        "use_case": UseCaseDiagramExtractor,
+        "sequence": SequenceDiagramExtractor,
+        "activity": ActivityDiagramExtractor
+    }
+    
     generator = DiagramGenerator()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(GOLDEN_DIR, exist_ok=True)
-    
     project_id = f"test_{suite_name}"
-    generator.generate_diagram(project_id, "class", elements, static_dir=os.path.join(current_dir, "output_static"), puml_dir=OUTPUT_DIR)
     
-    # 4. Compare with Golden
-    generated_path = os.path.join(OUTPUT_DIR, f"class_{project_id}.puml")
-    golden_path = os.path.join(GOLDEN_DIR, f"class_{project_id}.puml")
-    
-    if not os.path.exists(generated_path):
-        print(f"FAILED: Generation failed for {suite_name}")
-        return False
+    all_passed = True
 
-    with open(generated_path, 'r') as f:
-        generated_content = f.read()
+    for diagram_type, ExtractorCls in extractors.items():
+        # Define Type-Specific Directories
+        type_output_dir = os.path.join(OUTPUT_DIR, diagram_type)
+        type_golden_dir = os.path.join(GOLDEN_DIR, diagram_type)
+        type_static_dir = os.path.join(current_dir, "output_static", diagram_type)
 
-    golden_content = ""
-    if os.path.exists(golden_path):
-        with open(golden_path, 'r') as f:
-            golden_content = f.read()
-    else:
-        print(f"WARNING: No golden master found for {suite_name}")
+        # Ensure directories exist
+        os.makedirs(type_output_dir, exist_ok=True)
+        os.makedirs(type_golden_dir, exist_ok=True)
+        # static dir is created by plantuml usually, but good to be safe if passed as arg? 
+        # Actually generator passes it to -o, plantuml creates it if missing? 
+        # But let's create it.
+        os.makedirs(type_static_dir, exist_ok=True)
 
-    # Normalize newlines
-    generated_content = generated_content.strip().replace('\r\n', '\n')
-    golden_content = golden_content.strip().replace('\r\n', '\n')
+        # 2. Extract
+        try:
+            extractor = ExtractorCls(nlp_standard, ner_model=nlp_ner)
+            elements = extractor.extract(stories)
+        except Exception as e:
+            print(f"FAILED: Extraction error for {suite_name} ({diagram_type}): {e}")
+            all_passed = False
+            continue
 
-    if generated_content != golden_content:
-        if update_gold:
-            print(f"UPDATE: Updating golden master for {suite_name}")
-            with open(golden_path, 'w') as f:
-                f.write(generated_content)
-            return True
+        # 3. Generate Diagram
+        try:
+            # Generator expects types: 'class', 'use_case', 'sequence', 'activity'
+            # Note: static_dir passed to generator is where IMAGES go. puml_dir is where PUML goes.
+            generator.generate_diagram(project_id, diagram_type, elements, static_dir=type_static_dir, puml_dir=type_output_dir)
+        except Exception as e:
+            print(f"FAILED: Generation error for {suite_name} ({diagram_type}): {e}")
+            all_passed = False
+            continue
+        
+        # 4. Compare with Golden
+        # Filename convention from generator: {type}_{project_id}.puml
+        filename = f"{diagram_type}_{project_id}.puml"
+        generated_path = os.path.join(type_output_dir, filename)
+        golden_path = os.path.join(type_golden_dir, filename)
+        
+        if not os.path.exists(generated_path):
+            if os.path.exists(golden_path):
+                 print(f"FAILED: Regression - Output file missing for {suite_name} ({diagram_type}) but Golden exists.")
+                 all_passed = False
+            # If neither exists, it means extraction found no elements (e.g. no sequence messages), which is expected for some suites.
+            continue
+
+        with open(generated_path, 'r') as f:
+            generated_content = f.read()
+
+        golden_content = ""
+        if os.path.exists(golden_path):
+            with open(golden_path, 'r') as f:
+                golden_content = f.read()
         else:
-            print(f"FAILED: Mismatch detected for {suite_name}")
-            print("--- DIFF ---")
-            diff = difflib.unified_diff(
-                golden_content.splitlines(), 
-                generated_content.splitlines(), 
-                fromfile='Golden', 
-                tofile='Generated', 
-                lineterm=''
-            )
-            for line in diff:
-                print(line)
-            print("------------")
-            return False
-    else:
+            if not update_gold:
+                 print(f"WARNING: No golden master found for {suite_name} ({diagram_type})")
+                 # If no golden master and NOT updating, we can't verify, but maybe shouldn't fail?
+                 # For regression, missing master is usually a Fail or Warning. Defaulting to Warning for now.
+        
+        # Normalize newlines
+        generated_content = generated_content.strip().replace('\r\n', '\n')
+        golden_content = golden_content.strip().replace('\r\n', '\n')
+
+        if generated_content != golden_content:
+            if update_gold:
+                print(f"UPDATE: Updating golden master for {suite_name} ({diagram_type})")
+                with open(golden_path, 'w') as f:
+                    f.write(generated_content)
+            else:
+                print(f"FAILED: Mismatch detected for {suite_name} ({diagram_type})")
+                print(f"--- DIFF ({diagram_type}) ---")
+                diff = difflib.unified_diff(
+                    golden_content.splitlines(), 
+                    generated_content.splitlines(), 
+                    fromfile='Golden', 
+                    tofile='Generated', 
+                    lineterm=''
+                )
+                for line in diff:
+                    print(line)
+                print("------------")
+                all_passed = False
+        else:
+             # Only print PASS if it passed comparison (and golden existed)
+             if os.path.exists(golden_path):
+                 pass # Silent success for individual types to avoid spam? Or print specific pass?
+                 # print(f"PASS: {diagram_type}")
+
+    if all_passed:
         print(f"PASS: {suite_name}")
-        return True
+    
+    return all_passed
 
 def run_all():
     parser = argparse.ArgumentParser(description="Run regression tests for User Stories.")
