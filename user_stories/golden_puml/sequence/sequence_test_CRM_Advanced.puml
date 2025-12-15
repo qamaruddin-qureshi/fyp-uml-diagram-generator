@@ -1,9 +1,9 @@
 @startuml
 participant "Manager" as Manager
 participant "Sales Rep" as Sales_Rep
-participant "System" as System
 participant "User" as User
 participant "account" as account
+participant "System" as System
 Sales_Rep -> System: be able to set a follow-up reminder for a specific contact
 Sales_Rep -> account: view all contacts associated with a specific company (account)
 Manager -> System: assign ownership of a lead to a specific Sales Rep

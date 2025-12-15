@@ -138,15 +138,40 @@ class DiagramGenerator:
             return
 
         puml_code = ["@startuml"]
+        # Refined Sorting Rule:
+        # 1. Initiators (Participants that SEND messages) go to the LEFT.
+        # 2. "System" goes to the RIGHT.
+        # 3. Pure Receivers go in the middle.
+        
+        senders = set()
+        receivers = set()
         participants = set()
         
-        # Collect all unique names
-        for el in [el for el in elements if el['type'] == 'SequenceMessage']:
-            participants.add(el['data']['sender'])
-            participants.add(el['data']['receiver'])
+        message_elements = [el for el in elements if el['type'] == 'SequenceMessage']
+        
+        for el in message_elements:
+            s = el['data']['sender']
+            r = el['data']['receiver']
+            senders.add(s)
+            receivers.add(r)
+            participants.add(s)
+            participants.add(r)
 
-        # Define participants with quotes to handle spaces
-        for participant in sorted(list(participants)):
+        # Helper to determing sort key
+        def sort_key(name):
+            # 1. "System" should be last (highest value)
+            if name.lower() == "system":
+                return (3, name)
+            # 2. Senders (Initiators) should be first (lowest value)
+            if name in senders:
+                return (1, name)
+            # 3. Pure Receivers (middle)
+            return (2, name)
+        
+        ordered_participants = sorted(list(participants), key=sort_key)
+
+        # Define participants using the sorted order
+        for participant in ordered_participants:
             puml_code.append(f'participant "{participant}" as {self._format_class_name(participant)}')
 
         # Generate messages using the aliases

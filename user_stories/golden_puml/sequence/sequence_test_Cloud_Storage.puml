@@ -1,6 +1,6 @@
 @startuml
-participant "System" as System
 participant "User" as User
+participant "System" as System
 User -> System: create a new folder within my cloud storage
 User -> System: be able to upload files from my computer into a specific folder
 User -> System: be able to download a file or an entire folder to my local device

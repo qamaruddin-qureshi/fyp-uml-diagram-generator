@@ -1,10 +1,10 @@
 @startuml
 participant "Inspection Staff Supervisor" as Inspection_Staff_Supervisor
-participant "System" as System
 participant "patron" as patron
-participant "report" as report
 participant "researcher" as researcher
 participant "user" as user
+participant "report" as report
+participant "System" as System
 researcher -> System: download reports
 user -> System: update my profile picture and name so my teammates recognize me
 Inspection_Staff_Supervisor -> System: Assign Inspections

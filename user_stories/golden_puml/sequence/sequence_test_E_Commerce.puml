@@ -1,13 +1,13 @@
 @startuml
-participant "Account" as Account
 participant "Category" as Category
 participant "Customer" as Customer
+participant "Product" as Product
+participant "User" as User
+participant "Account" as Account
 participant "Order" as Order
 participant "OrderHistory" as OrderHistory
-participant "Product" as Product
-participant "System" as System
-participant "User" as User
 participant "account" as account
+participant "System" as System
 Customer -> Account: register Account with emailAddress and password
 Customer -> account: login to my account
 Customer -> System: view Product details by category

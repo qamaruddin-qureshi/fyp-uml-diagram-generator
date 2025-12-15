@@ -1,8 +1,8 @@
 @startuml
 participant "Manager" as Manager
 participant "Sales Rep" as Sales_Rep
-participant "System" as System
 participant "account" as account
+participant "System" as System
 Sales_Rep -> System: create a new contact record for a potential client
 Sales_Rep -> account: log an activity (e
 Sales_Rep -> System: create a new sales opportunity (lead) and track its value and stage in the pipeline
