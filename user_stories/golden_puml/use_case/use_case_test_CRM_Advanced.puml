@@ -1,8 +1,8 @@
 @startuml
 left to right direction
 actor "SalesRep" as SalesRep
+actor "Contact" as Contact
 actor "Manager" as Manager
-actor "System" as System
 actor "User" as User
 rectangle System {
 usecase "Be able to set a follow-up reminder for a specific contact" as Beabletosetafollowupreminderforaspecificcontact
@@ -13,10 +13,11 @@ usecase "Mark an opportunity as 'closed won'" as Markanopportunityasclosedwon
 usecase "Be able to export a list of leads for a specific campaign" as Beabletoexportalistofleadsforaspecificcampaign
 }
 SalesRep --> Beabletosetafollowupreminderforaspecificcontact
+Contact --> Beabletosetafollowupreminderforaspecificcontact
 SalesRep --> Viewallcontactsassociatedwithaspecificcompany
 Manager --> Assignownershipofaleadtoaspecificsalesrep
 SalesRep --> Assignownershipofaleadtoaspecificsalesrep
-System --> Sendanautomatedwelcomeemailtoanewcontact
+Contact --> Sendanautomatedwelcomeemailtoanewcontact
 SalesRep --> Markanopportunityasclosedwon
 User --> Beabletoexportalistofleadsforaspecificcampaign
 @enduml

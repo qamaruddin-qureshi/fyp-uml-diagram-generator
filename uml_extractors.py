@@ -957,43 +957,38 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
             primary_actors = []
 
             # 1. Try to get data from the Model Output (Primary)
-            # (Keeping existing logic but applying cleaning if model output is raw)
+            # We will gather candidates from Model AND Regex, then dedupe.
+            found_primary_candidates = set()
+            
             if 'groq_output' in data and 'use_case' in data['groq_output']:
                 raw_name = data['groq_output']['use_case']
                 use_case_name = self._clean_use_case_name(raw_name)
                 
                 actor_name = data['groq_output'].get('actor')
                 if actor_name:
-                    primary_actors.append(actor_name)
-                    self._add_class(actor_name, stereotype="actor", source_id=story_id)
-            else:   
-                # Fallback to regex/NLP (Secondary)
-                doc = self._process_text(text)
-                
-                # Actor Extraction (NER + Regex)
-                extracted_actors = set()
-                for ent in doc.ents:
-                    if ent.label_ == "ACTOR":
-                        extracted_actors.add(ent.text)
-                
-                actor_match = re.search(r"As (?:an? )?(.*?)(?:,|$)", text, re.IGNORECASE)
-                if actor_match:
-                    actor_clean = actor_match.group(1).strip()
-                    if actor_clean:
-                        extracted_actors.add(actor_clean)
+                    found_primary_candidates.add(actor_name)
+            
+            # 2. Always run Regex/NER to ensure we don't miss obvious actors (like 'Customer' in E-commerce)
+            # even if Model output was present but incomplete.
+            
+            # NER
+            doc = self._process_text(text)
+            for ent in doc.ents:
+                if ent.label_ == "ACTOR":
+                    found_primary_candidates.add(ent.text)
+            
+            # "As a X" Regex (High Confidence)
+            actor_match = re.search(r"As (?:an? )?(.*?)(?:,|$)", text, re.IGNORECASE)
+            if actor_match:
+                actor_clean = actor_match.group(1).strip()
+                if actor_clean:
+                    found_primary_candidates.add(actor_clean)
 
-                for actor in extracted_actors:
-                    self._add_class(actor, stereotype="actor", source_id=story_id)
-                    primary_actors.append(actor)
-
-                # Use Case Name Extraction
-                # Capture everything after "want to" BROADLY
-                # We do NOT stop at punctuation here, we let _clean_use_case_name handle it.
+            # Use Case Name Regex (Backup if Model failed)
+            if not use_case_name:
                 match = re.search(r"want to\s+(.*)", text, re.IGNORECASE)
-                
                 if match:
                     raw_name = match.group(1)
-                    # Apply robust cleaning
                     use_case_name = self._clean_use_case_name(raw_name)
 
             if use_case_name:
@@ -1003,29 +998,88 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
                     'source_id': story_id
                 })
                 
-                # Link Primary Actors
-                for actor in primary_actors:
+                # Add/Link Primary Actors
+                for actor in found_primary_candidates:
+                    actor = actor.strip()
+                    if not actor: continue
+                    
+                    # Suppress 'System' as a primary user actor (usually redundant or internal)
+                    if actor.lower() == 'system':
+                        continue
+
+                    self._add_class(actor, stereotype="actor", source_id=story_id)
+                    primary_actors.append(actor)
+                    
                     self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
-                
-                # Secondary Actor Detection
-                doc = self._process_text(text)
+                    # logger.info(f"DEBUG: Linked Primary {actor} -> {use_case_name}")
+
+                # Secondary Actor Detection (Target Detection)
+                # Re-scan for OTHER actors
                 all_found_actors = set()
+                # (Re-using doc from above)
                 for ent in doc.ents:
                     if ent.label_ == "ACTOR":
                         all_found_actors.add(ent.text)
                 
-                common_actors = ["User", "System", "Administrator", "Manager", "Customer", "Sales Rep", "SalesRep", "Staff", "Supervisor", "Researcher", "Patron"]
+                common_actors = ["User", "System", "Administrator", "Manager", "Customer", "Sales Rep", "SalesRep", "Staff", "Supervisor", "Researcher", "Patron", "Contact"]
                 for ca in common_actors:
                     if re.search(r'\b' + re.escape(ca) + r'\b', text, re.IGNORECASE):
                         all_found_actors.add(ca)
 
+                # Filter secondary actors
                 for actor in all_found_actors:
-                    if actor not in primary_actors:
-                        self._add_class(actor, stereotype="actor", source_id=story_id)
-                        self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
+                    actor = actor.strip()
+                    if not actor: continue 
+                    
+                    # Suppress System in secondary too?
+                    if actor.lower() == 'system':
+                        continue
+
+                    # 1. Self-Check: Don't link if it IS the primary actor
+                    # Use Case-Insensitive check
+                    is_primary = False
+                    for p in primary_actors:
+                        if p.lower() == actor.lower():
+                            is_primary = True
+                            break
+                    if is_primary:
+                        continue
+                        
+                    # 2. Overlap Check
+                    is_substring = False
+                    for primary in primary_actors:
+                        if actor in primary or primary in actor: 
+                             if len(actor) < len(primary):
+                                 is_substring = True
+                    
+                    if is_substring:
+                        continue
+
+                    self._add_class(actor, stereotype="actor", source_id=story_id)
+                    self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
 
         except Exception as e:
             logger.error(f"Use case extraction error for story {story_id}: {e}")
+
+    def _add_relationship(self, source, target, rel_type="-->", card_a=None, card_b=None, source_id=None):
+        """
+        Override relationship addition for Use Case diagrams.
+        - Source (Actor) MUST be normalized (as it was added via _add_class).
+        - Target (Use Case) MUST NOT be normalized (it keeps spaces).
+        """
+        # Normalize Source (Actor)
+        source = self._normalize_name(source)
+        # Keep Target (Use Case) as is (Cleaned but not PascalCased)
+        target = target.strip() 
+        
+        rel_key = (source, target, rel_type)
+        if rel_key not in self.found_relationships:
+            self.found_relationships.add(rel_key)
+            self.model_elements.append({
+                'type': 'Relationship',
+                'data': {'class_a': source, 'class_b': target, 'type': rel_type, 'card_a': card_a, 'card_b': card_b},
+                'source_id': source_id
+            })
 
 
 

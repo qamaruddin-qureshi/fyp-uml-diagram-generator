@@ -1,13 +1,11 @@
 @startuml
 left to right direction
-actor "System" as System
 actor "User" as User
 rectangle System {
 usecase "Alert the user" as Alerttheuser
 usecase "Be able to move a file from one folder to another" as Beabletomoveafilefromonefoldertoanother
 usecase "Be able to recover deleted files from a 'trash' or 'recycle bin' for up to 30 days" as Beabletorecoverdeletedfilesfromatrashorrecyclebinforupto30days
 }
-System --> Alerttheuser
 User --> Alerttheuser
 User --> Beabletomoveafilefromonefoldertoanother
 User --> Beabletorecoverdeletedfilesfromatrashorrecyclebinforupto30days

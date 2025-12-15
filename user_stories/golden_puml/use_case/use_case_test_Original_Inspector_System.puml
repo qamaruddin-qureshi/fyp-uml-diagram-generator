@@ -3,8 +3,6 @@ left to right direction
 actor "Researcher" as Researcher
 actor "User" as User
 actor "InspectionStaffSupervisor" as InspectionStaffSupervisor
-actor "Staff" as Staff
-actor "Supervisor" as Supervisor
 actor "Patron" as Patron
 rectangle System {
 usecase "Download reports" as Downloadreports
@@ -15,7 +13,5 @@ usecase "View multiple versions of a report/dataset" as Viewmultipleversionsofar
 Researcher --> Downloadreports
 User --> Updatemyprofilepictureandname
 InspectionStaffSupervisor --> Assigninspections
-Staff --> Assigninspections
-Supervisor --> Assigninspections
 Patron --> Viewmultipleversionsofareportdataset
 @enduml

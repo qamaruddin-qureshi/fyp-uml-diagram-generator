@@ -1,6 +1,7 @@
 @startuml
 left to right direction
 actor "SalesRep" as SalesRep
+actor "Contact" as Contact
 actor "Manager" as Manager
 rectangle System {
 usecase "Create a new contact record for a potential client" as Createanewcontactrecordforapotentialclient
@@ -9,7 +10,9 @@ usecase "Create a new sales opportunity and track its value and stage in the pip
 usecase "View a dashboard of the current sales pipeline and total revenue forecast" as Viewadashboardofthecurrentsalespipelineandtotalrevenueforecast
 }
 SalesRep --> Createanewcontactrecordforapotentialclient
+Contact --> Createanewcontactrecordforapotentialclient
 SalesRep --> Loganactivityagainstacontactoraccount
+Contact --> Loganactivityagainstacontactoraccount
 SalesRep --> Createanewsalesopportunityandtrackitsvalueandstageinthepipeline
 Manager --> Viewadashboardofthecurrentsalespipelineandtotalrevenueforecast
 @enduml
