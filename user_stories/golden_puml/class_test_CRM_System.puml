@@ -1,0 +1,96 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "SalesRep" as SalesRep <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +create(in "contact record" : Record) : void
+  +tracking(in "interactions" : Interaction) : void
+  +log(in "activity" : Activity) : void
+  +track(in "value" : String, in "stage" : String) : void
+  +forecast(in "revenue" : String) : void
+}
+class "Record" as Record  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Interaction" as Interaction  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "User" as User <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +login() : void
+  +logout() : void
+}
+class "Account" as Account  {
+  -name : String
+  -industry : String
+  -location : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Activity" as Activity  {
+  -type : String
+  -date : String
+  -notes : String
+  -duration : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Contact" as Contact  {
+  -name : String
+  -phone : String
+  -email : String
+  -company : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Opportunity" as Opportunity  {
+  -stage : String
+  -value : String
+  -closedate : String
+  -probability : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Manager" as Manager <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +view(in "dashboard" : Dashboard) : void
+  +manage(in "performance" : String) : void
+}
+class "Dashboard" as Dashboard  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+SalesRep --> Record
+SalesRep ..> Interaction
+SalesRep --|> User
+SalesRep ..> Activity
+SalesRep --> Activity
+Activity --> Contact
+Activity --> Account
+SalesRep --> Opportunity
+Manager ..> Dashboard
+Manager --|> User
+@enduml

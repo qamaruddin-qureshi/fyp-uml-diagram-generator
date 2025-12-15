@@ -1,0 +1,80 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "Researcher" as Researcher <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +download(in "reports" : Report) : void
+}
+class "Report" as Report  {
+  -title : String
+  -content : String
+  -publisheddate : String
+  -author : String
+  ..
+  +publish() : void
+  +archive() : void
+  +export() : void
+  +save() : void
+  +delete() : void
+}
+class "User" as User <<actor>> {
+  -picture : String
+  -name : String
+  ..
+  +update() : void
+  +recognize(in "me" : String) : void
+}
+class "InspectionStaffSupervisor" as InspectionStaffSupervisor <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +assign(in "Inspections" : Inspection) : void
+}
+class "Inspector" as Inspector <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +receivework(in "assignment" : Inspection) : void
+  +updatestatus() : void
+}
+class "Inspection" as Inspection  {
+  -status : String
+  -scheduleddate : String
+  -result : String
+  -location : String
+  ..
+  +complete() : void
+  +cancel() : void
+  +updateresult() : void
+}
+class "Patron" as Patron <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +view(in "versions" : ReportVersion, in "versions" : String) : void
+  +get(in "information" : String) : void
+}
+class "ReportVersion" as ReportVersion  {
+  -versionnumber : String
+  -changelog : String
+  -releasedate : String
+  ..
+  +download() : void
+  +restore() : void
+  +diff() : void
+}
+Researcher ..> Report
+Researcher --|> User
+InspectionStaffSupervisor --> Inspector
+InspectionStaffSupervisor --> Inspection
+InspectionStaffSupervisor --|> User
+Inspector --|> User
+Patron ..> ReportVersion
+Report *-- ReportVersion
+Patron --|> User
+@enduml

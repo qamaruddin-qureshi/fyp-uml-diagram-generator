@@ -1,0 +1,54 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "System" as System <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +alert(in "user" : User) : void
+  +reaches(in "%" : String) : void
+  +manage(in "space" : String) : void
+}
+class "User" as User  {
+  -id : String
+  -description : String
+  ..
+  +move(in "file" : File) : void
+  +recover(in "files" : File) : void
+  +undo(in "mistakes" : String) : void
+  +save() : void
+  +delete() : void
+}
+class "File" as File  {
+  -name : String
+  -size : String
+  -type : String
+  -path : String
+  ..
+  +open() : void
+  +edit() : void
+  +share() : void
+  +download() : void
+}
+class "Folder" as Folder  {
+  -name : String
+  -path : String
+  -itemcount : String
+  ..
+  +addfile() : void
+  +removefile() : void
+  +listcontents() : void
+}
+class "RecycleBin" as RecycleBin  {
+  -id : String
+  -description : String
+  ..
+  +restore(in "file" : File) : void
+  +save() : void
+  +delete() : void
+}
+System ..> User
+User ..> File
+User ..> Folder
+User ..> RecycleBin
+@enduml
