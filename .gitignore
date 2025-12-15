@@ -138,12 +138,16 @@ models/
 # ============================================================================
 generated_puml/
 static/
-*.puml
+repro_puml/*.puml
+adv_puml/*.puml
+test_puml/*.puml
+user_stories/output_puml/*.puml
 *.plantuml
 *.svg
 *.png
 *.jpg
 *.jpeg
+upgrade_plans/
 temp/
 tmp/
 cache/

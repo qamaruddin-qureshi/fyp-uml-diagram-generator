@@ -343,7 +343,7 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                             is_attr = False
                             for attr in self.attribute_patterns:
                                 # "profile picture" contains "picture"
-                                if attr in sub_obj.lower():
+                                if attr in sub_obj.lower() and sub_obj.lower() not in ["contact", "structure", "communication", "account", "ownership", "reminder", "opportunity", "lead"]:
                                     # Special check for "track version" -> this is a relationship, not attribute
                                     if "version" in attr and method_name.lower() == "track":
                                         is_attr = False
@@ -384,18 +384,104 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                     break
                             
                             if not is_attr:
+
                                 # It might be a Class Reference!
                                 # Logic to determine Relationship Type
                                 rel_type = "Dependency" # Default weak
                                 
-                                # "Assign", "Manage", "Has", "Upload", "Share" -> Association
-                                if method_name.lower() in ["assign", "manage", "create", "have", "owns", "upload", "share"]:
+                                # Check subtree for "associated with" (Run for ALL verbs)
+                                # Check subtree for "associated with" (Run for ALL verbs)
+                                # "contacts associated with a specific company"
+                                for t in obj_token.subtree:
+                                    if (t.lemma_ == "associate" or t.text == "associated"):
+                                         # Check for 'with' in children of 'associate' token
+                                         for gchild in t.children:
+                                             if gchild.dep_ == "prep" and gchild.text == "with":
+                                                 for gg in gchild.children:
+                                                     if gg.dep_ == "pobj":
+                                                         # Reconstruct target name (Company / Account)
+                                                         assoc_compounds = [c.text for c in gg.children if c.dep_ == "compound"]
+                                                         assoc_full = assoc_compounds + [gg.lemma_]
+                                                         assoc_target = self._normalize_name(" ".join(assoc_full))
+                                                         
+                                                         # If (Account) is present as appos?
+                                                         # check children of gg for appos
+                                                         for ggg in gg.children:
+                                                             if ggg.dep_ == "appos":
+                                                                 assoc_target = self._normalize_name(ggg.lemma_)
+                                                         
+                                                         # Link Object (Contact) --> Target (Account)
+                                                         src_cls = self._normalize_name(sub_obj) # "Contact"
+                                                         self._add_relationship(src_cls, assoc_target, "Association", source_id=story_id)
+                                                         if assoc_target not in self.found_classes:
+                                                             self._add_class(assoc_target, source_id=story_id)
+
+                                # "Assign", "Manage", "Has", "Upload", "Share", "Send" -> Association
+
+                                if method_name.lower() in ["assign", "manage", "create", "have", "owns", "upload", "share", "send"]:
                                     rel_type = "Association"
-                                    # Special Check: Assign/Share with WHO?
-                                    # If "Inspector" or "User" is in the text, and we are assigning/sharing, link them!
+                                    
+                                    # Special Check: Assign/Share/Send TO WHO?
+                                    # Look for 'dative' or 'prep' (to) children of the verb
+                                    for child in token.children:
+                                        if method_name.lower() == "assign":
+                                             pass
+                                        if child.dep_ == "dative" or (child.dep_ == "prep" and child.text == "to"):
+                                             # Found target
+                                             target_text = ""
+                                             if child.dep_ == "dative":
+                                                 target_text = child.text
+                                             else:
+                                                 # Get pobj
+                                                 for p in child.children:
+                                                     # print(f"DEBUG: Prep Child: {p.text} ({p.dep_})")
+                                                     if p.dep_ == "pobj":
+                                                         target_text = p.lemma_ # Use lemma e.g. "Sales Rep"
+                                             
+                                             if target_text:
+                                                 # Normalize
+                                                 target_norm = self._normalize_name(target_text)
+                                                 self._add_relationship(subject_entity, target_norm, "Association", source_id=story_id)
+                                                 if target_norm not in self.found_classes: self._add_class(target_norm, source_id=story_id)
+
+                                    # Check children of OBJECT for 'to' (e.g. assign ownership TO Rep) - RECURSIVE
+                                    if method_name.lower() in ["assign", "send"]:
+                                        # BFS/DFS for 'prep' 'to' in subtree
+                                        to_target_token = None
+                                        q = [obj_token]
+                                        visited = {obj_token}
+                                        while q:
+                                            curr = q.pop(0)
+                                            if curr.dep_ == "prep" and curr.text == "to":
+                                                 for p in curr.children:
+                                                     if p.dep_ == "pobj":
+                                                         to_target_token = p
+                                                 if to_target_token: break
+                                            
+                                            for c in curr.children:
+                                                if c not in visited:
+                                                    visited.add(c)
+                                                    q.append(c)
+                                        
+                                        if to_target_token:
+                                             # Reconstruct full name (Sales Rep)
+                                             t_compounds = [c.text for c in to_target_token.children if c.dep_ == "compound"]
+                                             t_full = t_compounds + [to_target_token.lemma_]
+                                             target_text = self._normalize_name(" ".join(t_full))
+                                             
+                                             self._add_relationship(subject_entity, target_text, "Association", source_id=story_id)
+                                             if target_text not in self.found_classes: self._add_class(target_text, source_id=story_id)
+
+                                    # Fallback: specific mentions of "User" or Actors (Existing logic)
+                                    # Restore Logic: Link distinct actors mentioned in sentence if not already linked
                                     for actor in current_actors:
-                                        if actor != subject_entity:
+                                        if actor != subject_entity and actor != "User": 
+                                             # Ensure we don't duplicate logic if "To" search found it
+                                             # But duplicates are handled by _add_relationship usually
                                              self._add_relationship(subject_entity, actor, "Association", source_id=story_id)
+                                             if actor not in self.found_classes:
+                                                 self._add_class(actor, source_id=story_id)
+
                                 
                                 # Check for spatial prepositions => Folder containment
                                 # "upload files INTO folder", "create folder WITHIN storage"

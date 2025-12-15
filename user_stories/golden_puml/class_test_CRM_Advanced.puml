@@ -97,9 +97,12 @@ class "List" as List  {
 }
 SalesRep ..> Reminder
 SalesRep ..> Communication
+Contact --> Account
 SalesRep ..> Contact
 SalesRep ..> Structure
+Manager --> SalesRep
 Manager --> Ownership
+System --> Contact
 SalesRep ..> Opportunity
 User o-- List
 SalesRep --|> User
