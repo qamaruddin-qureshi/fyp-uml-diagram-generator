@@ -6,7 +6,7 @@ class "SalesRep" as SalesRep <<actor>> {
   -email : String
   ..
   +create(in "contact record" : Record) : void
-  +tracking(in "interactions" : Interaction) : void
+  +tracking(in "interaction" : Interaction) : void
   +log(in "activity" : Activity) : void
   +track(in "value" : String, in "stage" : String) : void
   +forecast(in "revenue" : String) : void

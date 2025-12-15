@@ -66,10 +66,16 @@ class BaseDiagramExtractor:
 
 
     def _normalize_name(self, name):
+        name = name.strip()
+        if name.lower() == "addresses":
+             return "Address"
+        if name.lower().endswith("esses"): # generalizations
+             return name[:-2].capitalize()
         return re.sub(r'([a-z])([A-Z])', r'\1 \2', name).title().replace(" ", "")
 
     def _add_class(self, name, stereotype=None, source_id=None):
         name = self._normalize_name(name)
+        # print(f"DEBUG: Adding class {name}")
         if name not in self.found_classes:
             self.found_classes[name] = {'attributes': [], 'methods': [], 'stereotype': stereotype}
             self.model_elements.append({
@@ -163,19 +169,19 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                     if label == "ACTOR":
                         current_actors.append(norm)
 
-                # Fallback: "As a [Role]" pattern
-                if not current_actors:
-                    match = re.search(r'as an? ([a-zA-Z\s]+?),? i want', text, re.IGNORECASE)
-                    if match:
-                        role = match.group(1).strip()
-                        # Clean up role (singularize, simple token cleanup)
-                        # e.g. "Inspection Staff Supervisor" -> InspectionStaffSupervisor
-                        role_clean = self._normalize_name(role)
-                        if role_clean not in current_actors:
-                            current_actors.append(role_clean)
-                        
-                        # Add to model if not generic "User" (or even if it is User?)
-                        # Yes, add it.
+                # ALWAYS check for "As a X" pattern to capture Administrator even if Model found false positives
+                # Allow optional "a/an" for cases like "As Administrator"
+                match = re.search(r"As (?:an? )?(.*?)(?:,|$)", text, re.IGNORECASE)
+                if match:
+                    role = match.group(1).strip()
+                    # Clean up role
+                    role_clean = self._normalize_name(role)
+                    if role_clean not in current_actors:
+                        current_actors.append(role_clean)
+                    
+                    # Also ensure it's in the model
+                    # But we usually add actors at line 249.
+                    # We'll just append to current_actors here.
 
                 
                 # Identify Classes mainly from MAIN part, but also check NER in context
@@ -201,10 +207,8 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                         if token.text.lower() in self.attribute_patterns: continue
                         if token.text.lower() in self.class_stop_list: continue
                         
-                        # Singularize for Name
-                        c_name_raw = token.text
-                        if c_name_raw.endswith("s") and not c_name_raw.endswith("ss"):
-                            c_name_raw = c_name_raw[:-1]
+                        # Singularize for Name using NLP Lemma
+                        c_name_raw = token.lemma_
                         
                         c_name = self._normalize_name(c_name_raw)
 
@@ -311,7 +315,7 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                             # We want "ProfilePicture"
                             
                             sub_compounds = [c.text for c in obj_token.children if c.dep_ == "compound"]
-                            full_name_list = sub_compounds + [obj_token.text]
+                            full_name_list = sub_compounds + [obj_token.lemma_] # Use lemma for head (e.g. Interactions -> Interaction)
                             sub_obj = " ".join(full_name_list) # "profile picture"
                             
                             # Original text for attributes (with adjs etc)
@@ -381,7 +385,7 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                              # Get pobj
                                              for grandchild in child.children:
                                                  if grandchild.dep_ == "pobj":
-                                                     container_name = self._normalize_name(grandchild.text)
+                                                     container_name = self._normalize_name(grandchild.lemma_)
                                                      # If container is a class, link sub_obj to container
                                                      # e.g. upload File into Folder => Folder o-- File (Aggregation/Composition)
                                                      # But we have subject_entity (User) doing action. 
@@ -393,9 +397,8 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                                          self._add_class(container_name, source_id=story_id)
                                                          # Folder o-- File
                                                          # Singularize sub_obj for better diagram
-                                                         singular_sub = sub_obj
-                                                         if singular_sub.endswith("s") and not singular_sub.endswith("ss"):
-                                                              singular_sub = singular_sub[:-1]
+                                                         singular_sub = self._normalize_name(sub_obj)
+
                                                          
                                                          self._add_relationship(container_name, singular_sub, "Aggregation", source_id=story_id)
 
@@ -407,8 +410,8 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                 
                                 # Try to find matching class
                                 found_match = None
-                                singular_obj = sub_obj
-                                if singular_obj.endswith("s"): singular_obj = singular_obj[:-1]
+                                singular_obj = self._normalize_name(sub_obj)
+
                                 
                                 for c in current_classes:
                                     if c.lower() in sub_obj.lower() or c.lower() == singular_obj.lower():
@@ -424,7 +427,8 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                     # Heuristic: Uppercase or Plural of a Noun
                                     # "Inspections" -> Inspection
                                     is_potential_class = False
-                                    potential_name = singular_obj
+                                    potential_name = self._normalize_name(singular_obj)
+
                                     
                                     # If capitalized or endswith 's' and length > 2 avoiding trivial words
                                     if (singular_obj[0].isupper() or len(singular_obj) > 2) and singular_obj.lower() not in self.attribute_patterns and singular_obj.lower() not in self.class_stop_list:
@@ -572,6 +576,23 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                          if "capacity" in text.lower():
                                               params.append({'name': 'condition', 'type': 'String', 'direction': 'in'})
 
+                        # Generic "Manage" Logic
+                        if method_name.lower() == "manage":
+                             # "manage my Addresses", "manage a Product"
+                             # Extract object from NLP dobj
+                             for token in doc:
+                                 if token.text.lower() == "manage":
+                                     for child in token.children:
+                                         if child.dep_ == "dobj":
+                                             target_cls = self._normalize_name(child.text)
+                                             if target_cls.lower() not in self.class_stop_list:
+                                                  self._add_class(target_cls, source_id=story_id)
+                                                  self._add_relationship(subject_entity, target_cls, "Dependency", source_id=story_id)
+                                                  # Add CRUD methods to the target class?
+                                                  self._add_method(target_cls, "create", story_id, visibility="+")
+                                                  self._add_method(target_cls, "update", story_id, visibility="+")
+                                                  self._add_method(target_cls, "delete", story_id, visibility="+")
+
                         # 5. CRM Logic
                         # Activity
                         if "activity" in text.lower() or method_name.lower() == "log":
@@ -693,7 +714,12 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                     elif "opportunity" in cn_lower or "lead" in cn_lower:
                         defaults = ["stage", "value", "closeDate", "probability"]
                     elif "account" in cn_lower:
-                        defaults = ["name", "industry", "location"]
+                        # Context Check: CRM vs Generic
+                        has_crm = any("lead" in c.lower() or "opportunity" in c.lower() for c in self.found_classes)
+                        if has_crm:
+                             defaults = ["name", "industry", "location"]
+                        else:
+                             defaults = ["username", "password", "email"]
                     elif "activity" in cn_lower:
                         defaults = ["type", "date", "notes", "duration"]
                     else:
@@ -774,13 +800,20 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
                         actors.append(ent.text)
                         self._add_class(ent.text, stereotype="actor", source_id=story_id)
                 
-                # If no actors found by NER, check for "As a X" pattern
-                if not actors:
-                    actor_match = re.search(r"As an? (.*?)(,|$)", text, re.IGNORECASE)
-                    if actor_match:
-                        actor_clean = actor_match.group(1).strip()
+                # ALWAYS check for "As a X" pattern to capture Administrator even if Model found false positives
+                # Allow optional "a/an" for cases like "As Administrator"
+                actor_match = re.search(r"As (?:an? )?(.*?)(?:,|$)", text, re.IGNORECASE)
+                if actor_match:
+                    actor_clean = actor_match.group(1).strip()
+                    if actor_clean not in actors: # Avoid duplicates
+                        print(f"DEBUG: Regex found actor: {actor_clean}")
                         actors.append(actor_clean)
                         self._add_class(actor_clean, stereotype="actor", source_id=story_id)
+
+                # If no actors found by ANY means...
+                if not actors: 
+                     pass 
+
 
                 # IMPROVED REGEX (Capture full phrase after "want to")
                 # Matches "want to [everything until comma or period]"

@@ -14,8 +14,8 @@ class "User" as User  {
   -description : String
   ..
   +move(in "file" : File) : void
-  +recover(in "files" : File) : void
-  +undo(in "mistakes" : String) : void
+  +recover(in "file" : File) : void
+  +undo(in "mistake" : String) : void
   +save() : void
   +delete() : void
 }

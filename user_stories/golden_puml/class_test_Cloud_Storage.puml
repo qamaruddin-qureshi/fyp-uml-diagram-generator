@@ -6,9 +6,9 @@ class "User" as User <<actor>> {
   -email : String
   ..
   +create(in "folder" : Folder) : void
-  +organize(in "files" : File) : void
-  +upload(in "files" : File) : void
-  +back(in "data" : String) : void
+  +organize(in "file" : File) : void
+  +upload(in "file" : File) : void
+  +back(in "datum" : String) : void
   +download(in "file" : File, in "folder" : Folder) : void
   +access(in "it" : String) : void
   +share(in "file" : File) : void

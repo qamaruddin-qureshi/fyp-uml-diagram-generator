@@ -1,0 +1,99 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "Customer" as Customer <<actor>> {
+  -product quantity : String
+  -address : String
+  ..
+  +register(in "Account" : Account) : void
+  +view(in "Product detail" : Detail) : void
+  +add(in "product" : Product) : void
+  +update() : void
+  +place(in "order" : Order) : void
+  +manage() : void
+}
+class "Account" as Account  {
+  -username : String
+  -password : String
+  -email : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "User" as User <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +login() : void
+  +logout() : void
+}
+class "Detail" as Detail  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Product" as Product  {
+  -id : String
+  -description : String
+  ..
+  +create() : void
+  +update() : void
+  +delete() : void
+  +save() : void
+}
+class "Order" as Order  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "OrderHistory" as OrderHistory  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Address" as Address  {
+  -id : String
+  -description : String
+  ..
+  +create() : void
+  +update() : void
+  +delete() : void
+  +save() : void
+}
+class "Administrator" as Administrator <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +manage(in "product" : Product) : void
+  +view(in "Order detail" : Detail) : void
+}
+class "Category" as Category  {
+  -id : String
+  -description : String
+  ..
+  +create() : void
+  +update() : void
+  +delete() : void
+  +save() : void
+}
+Customer ..> Account
+Customer --|> User
+Customer ..> Detail
+Customer ..> Product
+Customer ..> Order
+Customer ..> OrderHistory
+Customer ..> Address
+Administrator --> Product
+Administrator ..> Product
+Administrator --|> User
+Administrator --> Category
+Administrator ..> Category
+Administrator ..> Detail
+@enduml

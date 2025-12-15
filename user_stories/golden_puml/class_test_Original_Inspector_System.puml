@@ -5,7 +5,7 @@ class "Researcher" as Researcher <<actor>> {
   -name : String
   -email : String
   ..
-  +download(in "reports" : Report) : void
+  +download(in "report" : Report) : void
 }
 class "Report" as Report  {
   -title : String
@@ -24,14 +24,14 @@ class "User" as User <<actor>> {
   -name : String
   ..
   +update() : void
-  +recognize(in "me" : String) : void
+  +recognize(in "I" : String) : void
 }
 class "InspectionStaffSupervisor" as InspectionStaffSupervisor <<actor>> {
   -id : String
   -name : String
   -email : String
   ..
-  +assign(in "Inspections" : Inspection) : void
+  +assign(in "inspection" : Inspection) : void
 }
 class "Inspector" as Inspector <<actor>> {
   -id : String
@@ -56,7 +56,7 @@ class "Patron" as Patron <<actor>> {
   -name : String
   -email : String
   ..
-  +view(in "versions" : ReportVersion, in "versions" : String) : void
+  +view(in "version" : ReportVersion, in "version" : String) : void
   +get(in "information" : String) : void
 }
 class "ReportVersion" as ReportVersion  {

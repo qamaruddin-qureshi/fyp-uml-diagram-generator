@@ -53,6 +53,19 @@ TEST_SUITES = {
         {"storyid": 402, "storytext": "As a Sales Rep, I want to log an activity (e.g., call, email, meeting) against a contact or account, so the history is complete."},
         {"storyid": 403, "storytext": "As a Sales Rep, I want to create a new sales opportunity (lead) and track its value and stage in the pipeline, so I can forecast revenue."},
         {"storyid": 404, "storytext": "As a Manager, I want to view a dashboard of the current sales pipeline and total revenue forecast, so I can manage the team's performance."}
+    ],
+    "E_Commerce": [
+        {"storyid": 501, "storytext": "As a Customer, I want to register Account with emailAddress and password."},
+        {"storyid": 502, "storytext": "As a Customer, i want to login to my account."},
+        {"storyid": 503, "storytext": "As a Customer, I want to view Product details by category."},
+        {"storyid": 504, "storytext": "As a Customer, I want to add a Product to the ShoppingCart."},
+        {"storyid": 505, "storytext": "As a Customer, I want to update ShoppingCart Product quantity."},
+        {"storyid": 506, "storytext": "As a Customer, I want to place an Order with shippingAddress."},
+        {"storyid": 507, "storytext": "As a Customer, I want to view my OrderHistory for orderDate and totalAmount."},
+        {"storyid": 508, "storytext": "As a Customer, I want to manage my Addresses (add, edit, delete)."},
+        {"storyid": 509, "storytext": "As Administrator, I want to manage a Product (add, edit, delete) including name, price, and description."},
+        {"storyid": 510, "storytext": "As Administrator, I want to manage a Category (create, rename, delete)."},
+        {"storyid": 511, "storytext": "As Administrator, I want to view Order details."}
     ]
 }
 

@@ -5,11 +5,11 @@ class "User" as User <<actor>> {
   -name : String
   -email : String
   ..
-  +set(in "permissions" : Permission, in "permissions" : Enum{Read-Only or Edit}) : void
+  +set(in "permission" : Permission, in "permissions" : Enum{Read-Only or Edit}) : void
   +control(in "access" : String, in "permissions" : Enum{Read-Only or Edit}) : void
   +track(in "version history" : String) : void
   +revert(in "toVersion" : Version) : void
-  +locate(in "documents" : Document) : List<String>
+  +locate(in "document" : Document) : List<String>
 }
 class "Permission" as Permission  {
   -id : String
