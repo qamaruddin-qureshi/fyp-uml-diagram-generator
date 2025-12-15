@@ -23,7 +23,7 @@ class "Version" as Version  {
   -author : String
   -changelog : String
   ..
-  +getdetails() : String
+  +getDetails() : String
   +restore() : void
 }
 class "Files" as Files  {

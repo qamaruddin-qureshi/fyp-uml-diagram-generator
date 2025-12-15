@@ -31,15 +31,15 @@ class "InspectionStaffSupervisor" as InspectionStaffSupervisor <<actor>> {
   -name : String
   -email : String
   ..
-  +assign(in "inspection" : Inspection) : void
+  +Assign(in "inspection" : Inspection) : void
 }
 class "Inspector" as Inspector <<actor>> {
   -id : String
   -name : String
   -email : String
   ..
-  +receivework(in "assignment" : Inspection) : void
-  +updatestatus() : void
+  +receiveWork(in "assignment" : Inspection) : void
+  +updateStatus() : void
 }
 class "Inspection" as Inspection  {
   -status : String
@@ -49,7 +49,7 @@ class "Inspection" as Inspection  {
   ..
   +complete() : void
   +cancel() : void
-  +updateresult() : void
+  +updateResult() : void
 }
 class "Patron" as Patron <<actor>> {
   -id : String

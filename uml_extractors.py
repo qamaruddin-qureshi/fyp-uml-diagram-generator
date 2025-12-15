@@ -102,10 +102,10 @@ class BaseDiagramExtractor:
 
     def _add_method(self, class_name, method_name, source_id, params=None, visibility="+", return_type="void"):
         class_name = self._normalize_name(class_name)
-        method_name = method_name.lower()
+        # method_name = method_name.lower() # Allow camelCase
         if class_name in self.found_classes:
-            existing = [m['name'] for m in self.found_classes[class_name]['methods']]
-            if method_name not in existing:
+            existing = [m['name'].lower() for m in self.found_classes[class_name]['methods']]
+            if method_name.lower() not in existing:
                 method_data = {
                     'name': method_name, 
                     'params': params if params else [], 
@@ -312,7 +312,8 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                         if not objects: continue
 
                         params = []
-                        
+                        final_method_name = method_name
+
                         for obj_token in objects:
                             # Construct name from compound + head
                             # e.g. "profile picture" -> "picture" head, "profile" compound
@@ -325,6 +326,18 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                             # Original text for attributes (with adjs etc)
                             obj_text_subtree = "".join([c.text_with_ws for c in obj_token.subtree]).strip()
 
+                            # Refine Method Name based on Object
+                            low_sub = sub_obj.lower()
+                            if method_name.lower() == "set" and "reminder" in low_sub:
+                                final_method_name = "setReminder"
+                            elif method_name.lower() == "assign" and "ownership" in low_sub:
+                                final_method_name = "assignOwnership"
+                            elif method_name.lower() == "send" and "email" in low_sub:
+                                final_method_name = "sendEmail"
+                            elif method_name.lower() == "export" and ("lead" in low_sub or "lead" in obj_text_subtree.lower()):
+                                final_method_name = "exportLeads"
+
+
                                 
                             # Check if it is an attribute
                             is_attr = False
@@ -333,6 +346,11 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                 if attr in sub_obj.lower():
                                     # Special check for "track version" -> this is a relationship, not attribute
                                     if "version" in attr and method_name.lower() == "track":
+                                        is_attr = False
+                                        break
+                                    
+                                    # Special check for "send email" -> method, not attribute
+                                    if "email" in attr and "send" in method_name.lower():
                                         is_attr = False
                                         break
 
@@ -456,6 +474,18 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                                     else:
                                         # Just a param
                                         params.append({'name': sub_obj, 'type': 'String', 'direction': 'in'})
+
+                        # Update method name if refined
+                        method_name = final_method_name
+
+                        # Check for "mark as..." pattern
+                        if method_name.lower() == "mark":
+                             for child in token.children:
+                                 if child.dep_ == "prep" and child.text == "as":
+                                     for gchild in child.children:
+                                         if gchild.dep_ == "pobj":
+                                             status_val = self._normalize_name(gchild.text)
+                                             method_name = f"markAs{status_val}"
 
                         # --- ADVANCED LOGIC: Search, Permissions, Versioning ---
                         
@@ -729,6 +759,12 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
                              defaults = ["username", "password", "email"]
                     elif "activity" in cn_lower:
                         defaults = ["type", "date", "notes", "duration"]
+                    elif "reminder" in cn_lower:
+                        defaults = ["date", "time", "note", "status"]
+                    elif "campaign" in cn_lower:
+                        defaults = ["name", "budget", "startDate", "endDate", "type"]
+                    elif "email" in cn_lower:
+                        defaults = ["subject", "body", "recipient", "sender", "date"]
                     else:
                         defaults = ["id", "description"]
                     

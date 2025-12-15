@@ -66,6 +66,14 @@ TEST_SUITES = {
         {"storyid": 509, "storytext": "As Administrator, I want to manage a Product (add, edit, delete) including name, price, and description."},
         {"storyid": 510, "storytext": "As Administrator, I want to manage a Category (create, rename, delete)."},
         {"storyid": 511, "storytext": "As Administrator, I want to view Order details."}
+    ],
+    "CRM_Advanced": [
+        {"storyid": 601, "storytext": "As a Sales Rep, I want to be able to set a follow-up reminder for a specific contact, so I don't miss important communication."},
+        {"storyid": 602, "storytext": "As a Sales Rep, I want to view all contacts associated with a specific company (account), so I understand the organizational structure."},
+        {"storyid": 603, "storytext": "As a Manager, I want to assign ownership of a lead to a specific Sales Rep, so accountability is clear."},
+        {"storyid": 604, "storytext": "As a System, I want to send an automated welcome email to a new contact when they are entered into the system, so they are immediately engaged."},
+        {"storyid": 605, "storytext": "As a Sales Rep, I want to mark an opportunity as 'Closed Won' when a deal is finalized, so the sales record is updated."},
+        {"storyid": 606, "storytext": "As a User, I want to be able to export a list of leads for a specific campaign, so I can use it for targeted marketing."}
     ]
 }
 

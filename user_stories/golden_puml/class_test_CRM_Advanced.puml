@@ -1,0 +1,107 @@
+@startuml
+skinparam classAttributeIconSize 0
+class "SalesRep" as SalesRep <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +setReminder(in "reminder" : Reminder) : void
+  +miss(in "communication" : Communication) : void
+  +view(in "contact" : Contact) : void
+  +understand(in "structure" : Structure) : void
+  +markAsWon(in "opportunity" : Opportunity) : void
+}
+class "Reminder" as Reminder  {
+  -date : String
+  -time : String
+  -note : String
+  -status : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Communication" as Communication  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Account" as Account  {
+  -name : String
+  -industry : String
+  -location : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Contact" as Contact  {
+  -name : String
+  -phone : String
+  -email : String
+  -company : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Structure" as Structure  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "Manager" as Manager <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +assignOwnership(in "ownership" : Ownership) : void
+}
+class "Ownership" as Ownership  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "System" as System <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +sendEmail(in "welcome email" : String) : void
+}
+class "Opportunity" as Opportunity  {
+  -stage : String
+  -value : String
+  -closedate : String
+  -probability : String
+  ..
+  +save() : void
+  +delete() : void
+}
+class "User" as User <<actor>> {
+  -id : String
+  -name : String
+  -email : String
+  ..
+  +exportLeads(in "list" : List) : void
+}
+class "List" as List  {
+  -id : String
+  -description : String
+  ..
+  +save() : void
+  +delete() : void
+}
+SalesRep ..> Reminder
+SalesRep ..> Communication
+SalesRep ..> Contact
+SalesRep ..> Structure
+Manager --> Ownership
+SalesRep ..> Opportunity
+User o-- List
+SalesRep --|> User
+Manager --|> User
+@enduml

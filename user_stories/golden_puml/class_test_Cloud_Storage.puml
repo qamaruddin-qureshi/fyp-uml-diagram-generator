@@ -19,9 +19,9 @@ class "Folder" as Folder  {
   -path : String
   -itemcount : String
   ..
-  +addfile() : void
-  +removefile() : void
-  +listcontents() : void
+  +addFile() : void
+  +removeFile() : void
+  +listContents() : void
 }
 class "File" as File  {
   -name : String
