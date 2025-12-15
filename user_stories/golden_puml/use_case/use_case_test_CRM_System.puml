@@ -4,12 +4,12 @@ actor "SalesRep" as SalesRep
 actor "Manager" as Manager
 rectangle System {
 usecase "Create a new contact record for a potential client" as Createanewcontactrecordforapotentialclient
-usecase "Log an activity (e" as Loganactivitye
-usecase "Create a new sales opportunity (lead) and track its value and stage in the pipeline" as Createanewsalesopportunityleadandtrackitsvalueandstageinthepipeline
+usecase "Log an activity against a contact or account" as Loganactivityagainstacontactoraccount
+usecase "Create a new sales opportunity and track its value and stage in the pipeline" as Createanewsalesopportunityandtrackitsvalueandstageinthepipeline
 usecase "View a dashboard of the current sales pipeline and total revenue forecast" as Viewadashboardofthecurrentsalespipelineandtotalrevenueforecast
 }
 SalesRep --> Createanewcontactrecordforapotentialclient
-SalesRep --> Loganactivitye
-SalesRep --> Createanewsalesopportunityleadandtrackitsvalueandstageinthepipeline
+SalesRep --> Loganactivityagainstacontactoraccount
+SalesRep --> Createanewsalesopportunityandtrackitsvalueandstageinthepipeline
 Manager --> Viewadashboardofthecurrentsalespipelineandtotalrevenueforecast
 @enduml

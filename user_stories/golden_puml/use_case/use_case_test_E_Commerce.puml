@@ -10,9 +10,9 @@ usecase "Add a product to the shoppingcart" as Addaproducttotheshoppingcart
 usecase "Update shoppingcart product quantity" as Updateshoppingcartproductquantity
 usecase "Place an order with shippingaddress" as Placeanorderwithshippingaddress
 usecase "View my orderhistory for orderdate and totalamount" as Viewmyorderhistoryfororderdateandtotalamount
-usecase "Manage my addresses (add" as Managemyaddressesadd
-usecase "Manage a product (add" as Manageaproductadd
-usecase "Manage a category (create" as Manageacategorycreate
+usecase "Manage my addresses" as Managemyaddresses
+usecase "Manage a product including name, price, and description" as Manageaproductincludingnamepriceanddescription
+usecase "Manage a category" as Manageacategory
 usecase "View order details" as Vieworderdetails
 }
 Customer --> Registeraccountwithemailaddressandpassword
@@ -22,8 +22,7 @@ Customer --> Addaproducttotheshoppingcart
 Customer --> Updateshoppingcartproductquantity
 Customer --> Placeanorderwithshippingaddress
 Customer --> Viewmyorderhistoryfororderdateandtotalamount
-Customer --> Managemyaddressesadd
-Administrator --> Manageaproductadd
-Administrator --> Manageacategorycreate
+Administrator --> Manageaproductincludingnamepriceanddescription
+Administrator --> Manageacategory
 Administrator --> Vieworderdetails
 @enduml

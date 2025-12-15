@@ -894,6 +894,55 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
         logger.info(f"Extracted {len(self.model_elements)} elements for use case diagram")
         return self.model_elements
 
+    def _clean_use_case_name(self, text):
+        """
+        Clean use case names:
+        1. Remove parenthetical content entirely FIRST (handles e.g. correctly).
+        2. Remove 'so that', 'so', 'in order to', etc. (Truncate)
+        3. Split on punctuation (.,) to handle clauses.
+        """
+        # 1. Parenthesis Removal: Remove ( ... )
+        # Using a loop to handle nested/multiple parens if needed, but regex is fine for simple levels.
+        # Note: This removes (e.g. ...) so the '.' inside is gone.
+        text = re.sub(r'\s*\(.*?\)', '', text)
+
+        # 2. Truncation Keywords
+        stops = [" so that ", " in order to ", " so ", " when ", " using ", " to get ", " because "]
+        lower_text = text.lower()
+        
+        min_idx = len(text)
+        found_stop = False
+        for stop in stops:
+            idx = lower_text.find(stop)
+            if idx != -1 and idx < min_idx:
+                min_idx = idx
+                found_stop = True
+        
+        if found_stop:
+            text = text[:min_idx]
+
+        # 3. Split on punctuation (.,) after parens/stops are gone
+        # This handles "Process match. Then..." or "Process match, and..."
+        # But be careful of "Process X, Y, and Z". Use case names shouldn't usually be lists?
+        # If we split on comma, "Process X, Y" becomes "Process X".
+        # User stories: "want to X, so that..." -> Comma handled by 'so that' usually?
+        # If "want to X, Y, Z". Splitting on comma is aggressive.
+        # But for "Log an activity (e.g. ...)", we want "Log an activity".
+        # Current issue was splitting on '.' inside parens.
+        # Now parens are gone.
+        # Leaving comma might be safer, unless it separates clauses?
+        # Let's strip trailing punctuation only, and let 'stops' handle clauses.
+        # If "want to log activity. Then I..." -> "log activity."
+        
+        # New approach: Don't split on comma inside list? Hard.
+        # Let's relying on 'stops'. If no stop, keep text?
+        # But "want to X. Then Y." -> "X. Then Y."
+        # We should split on '.' for sure.
+        if '.' in text:
+            text = text.split('.')[0]
+            
+        return text.strip(" ,;:").capitalize()
+
     def _extract_use_cases(self, story_id, text):
         try:
             logger.info(f"Extracting use cases for story {story_id}")
@@ -904,62 +953,77 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
                 except json.JSONDecodeError:
                     pass
             
+            use_case_name = None
+            primary_actors = []
+
             # 1. Try to get data from the Model Output (Primary)
+            # (Keeping existing logic but applying cleaning if model output is raw)
             if 'groq_output' in data and 'use_case' in data['groq_output']:
-                uc_name = data['groq_output']['use_case']
+                raw_name = data['groq_output']['use_case']
+                use_case_name = self._clean_use_case_name(raw_name)
+                
                 actor_name = data['groq_output'].get('actor')
-                
                 if actor_name:
+                    primary_actors.append(actor_name)
                     self._add_class(actor_name, stereotype="actor", source_id=story_id)
-                    
-                self.model_elements.append({
-                    'type': 'UseCase',
-                    'data': {'name': uc_name},  # Keep original spaces
-                    'source_id': story_id
-                })
-                
-                if actor_name:
-                    self._add_relationship(actor_name, uc_name, "-->", source_id=story_id)
-            else:   # Fallback to regex/NLP (Secondary)
+            else:   
+                # Fallback to regex/NLP (Secondary)
                 doc = self._process_text(text)
-                actors = []
+                
+                # Actor Extraction (NER + Regex)
+                extracted_actors = set()
                 for ent in doc.ents:
                     if ent.label_ == "ACTOR":
-
-                        actors.append(ent.text)
-                        self._add_class(ent.text, stereotype="actor", source_id=story_id)
+                        extracted_actors.add(ent.text)
                 
-                # ALWAYS check for "As a X" pattern to capture Administrator even if Model found false positives
-                # Allow optional "a/an" for cases like "As Administrator"
                 actor_match = re.search(r"As (?:an? )?(.*?)(?:,|$)", text, re.IGNORECASE)
                 if actor_match:
                     actor_clean = actor_match.group(1).strip()
-                    if actor_clean not in actors: # Avoid duplicates
-                        print(f"DEBUG: Regex found actor: {actor_clean}")
-                        actors.append(actor_clean)
-                        self._add_class(actor_clean, stereotype="actor", source_id=story_id)
+                    if actor_clean:
+                        extracted_actors.add(actor_clean)
 
-                # If no actors found by ANY means...
-                if not actors: 
-                     pass 
+                for actor in extracted_actors:
+                    self._add_class(actor, stereotype="actor", source_id=story_id)
+                    primary_actors.append(actor)
 
-
-                # IMPROVED REGEX (Capture full phrase after "want to")
-                # Matches "want to [everything until comma or period]"
-                match = re.search(r"want to\s+(.*?)(?:,|$|\.)", text, re.IGNORECASE)
+                # Use Case Name Extraction
+                # Capture everything after "want to" BROADLY
+                # We do NOT stop at punctuation here, we let _clean_use_case_name handle it.
+                match = re.search(r"want to\s+(.*)", text, re.IGNORECASE)
                 
                 if match:
-                    # Strip whitespace but keep internal spaces
-                    use_case_name = match.group(1).strip().capitalize()
-                    
-                    self.model_elements.append({
-                        'type': 'UseCase',
-                        'data': {'name': use_case_name},
-                        'source_id': story_id
-                    })
-                    
-                    for actor in actors:
+                    raw_name = match.group(1)
+                    # Apply robust cleaning
+                    use_case_name = self._clean_use_case_name(raw_name)
+
+            if use_case_name:
+                self.model_elements.append({
+                    'type': 'UseCase',
+                    'data': {'name': use_case_name},
+                    'source_id': story_id
+                })
+                
+                # Link Primary Actors
+                for actor in primary_actors:
+                    self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
+                
+                # Secondary Actor Detection
+                doc = self._process_text(text)
+                all_found_actors = set()
+                for ent in doc.ents:
+                    if ent.label_ == "ACTOR":
+                        all_found_actors.add(ent.text)
+                
+                common_actors = ["User", "System", "Administrator", "Manager", "Customer", "Sales Rep", "SalesRep", "Staff", "Supervisor", "Researcher", "Patron"]
+                for ca in common_actors:
+                    if re.search(r'\b' + re.escape(ca) + r'\b', text, re.IGNORECASE):
+                        all_found_actors.add(ca)
+
+                for actor in all_found_actors:
+                    if actor not in primary_actors:
+                        self._add_class(actor, stereotype="actor", source_id=story_id)
                         self._add_relationship(actor, use_case_name, "-->", source_id=story_id)
+
         except Exception as e:
             logger.error(f"Use case extraction error for story {story_id}: {e}")
 

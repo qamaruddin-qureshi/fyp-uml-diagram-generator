@@ -6,16 +6,17 @@ actor "System" as System
 actor "User" as User
 rectangle System {
 usecase "Be able to set a follow-up reminder for a specific contact" as Beabletosetafollowupreminderforaspecificcontact
-usecase "View all contacts associated with a specific company (account)" as Viewallcontactsassociatedwithaspecificcompanyaccount
+usecase "View all contacts associated with a specific company" as Viewallcontactsassociatedwithaspecificcompany
 usecase "Assign ownership of a lead to a specific sales rep" as Assignownershipofaleadtoaspecificsalesrep
-usecase "Send an automated welcome email to a new contact when they are entered into the system" as Sendanautomatedwelcomeemailtoanewcontactwhentheyareenteredintothesystem
-usecase "Mark an opportunity as 'closed won' when a deal is finalized" as Markanopportunityasclosedwonwhenadealisfinalized
+usecase "Send an automated welcome email to a new contact" as Sendanautomatedwelcomeemailtoanewcontact
+usecase "Mark an opportunity as 'closed won'" as Markanopportunityasclosedwon
 usecase "Be able to export a list of leads for a specific campaign" as Beabletoexportalistofleadsforaspecificcampaign
 }
 SalesRep --> Beabletosetafollowupreminderforaspecificcontact
-SalesRep --> Viewallcontactsassociatedwithaspecificcompanyaccount
+SalesRep --> Viewallcontactsassociatedwithaspecificcompany
 Manager --> Assignownershipofaleadtoaspecificsalesrep
-System --> Sendanautomatedwelcomeemailtoanewcontactwhentheyareenteredintothesystem
-SalesRep --> Markanopportunityasclosedwonwhenadealisfinalized
+SalesRep --> Assignownershipofaleadtoaspecificsalesrep
+System --> Sendanautomatedwelcomeemailtoanewcontact
+SalesRep --> Markanopportunityasclosedwon
 User --> Beabletoexportalistofleadsforaspecificcampaign
 @enduml

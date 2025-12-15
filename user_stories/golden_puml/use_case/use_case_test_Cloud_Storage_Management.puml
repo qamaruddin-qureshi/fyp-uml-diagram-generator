@@ -3,11 +3,12 @@ left to right direction
 actor "System" as System
 actor "User" as User
 rectangle System {
-usecase "Alert the user when their storage capacity reaches 90%" as Alerttheuserwhentheirstoragecapacityreaches90
-usecase "Be able to move a file from one folder to another using a drag-and-drop interface" as Beabletomoveafilefromonefoldertoanotherusingadraganddropinterface
+usecase "Alert the user" as Alerttheuser
+usecase "Be able to move a file from one folder to another" as Beabletomoveafilefromonefoldertoanother
 usecase "Be able to recover deleted files from a 'trash' or 'recycle bin' for up to 30 days" as Beabletorecoverdeletedfilesfromatrashorrecyclebinforupto30days
 }
-System --> Alerttheuserwhentheirstoragecapacityreaches90
-User --> Beabletomoveafilefromonefoldertoanotherusingadraganddropinterface
+System --> Alerttheuser
+User --> Alerttheuser
+User --> Beabletomoveafilefromonefoldertoanother
 User --> Beabletorecoverdeletedfilesfromatrashorrecyclebinforupto30days
 @enduml
