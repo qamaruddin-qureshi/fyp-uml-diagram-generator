@@ -4,6 +4,8 @@ component "User Service" as UserService
 component "Billing Service" as BillingService
 interface "REST API" as ifaceRESTAPI
 UserService -- ifaceRESTAPI
+Frontend ..> ifaceRESTAPI : use
 interface "Authentication" as ifaceAuthentication
 UserService -- ifaceAuthentication
+BillingService ..> ifaceAuthentication : use
 @enduml

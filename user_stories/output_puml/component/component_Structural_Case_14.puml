@@ -10,4 +10,7 @@ DecentralizedFinanceDashboard --> ZapperApi : uses
 Dashboard --> SimpleStorageService : uses
 Dashboard --> EthereumMainnet : communicates with
 Dashboard --> EthereumMainnet : interacts
+DecentralizedFinanceDashboard --> SimpleStorageService : use
+DecentralizedFinanceDashboard --> EthereumMainnet : interact with
+DecentralizedFinanceDashboard --> Quicknode : interact via
 @enduml

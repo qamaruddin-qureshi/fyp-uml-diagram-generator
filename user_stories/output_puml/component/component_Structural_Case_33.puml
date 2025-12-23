@@ -1,5 +1,4 @@
 @startuml
 skinparam componentStyle uml2
-component "Port 8080" as Port8080
-component "Port 9090" as Port9090
+WebServer --> AppServer : connect to
 @enduml

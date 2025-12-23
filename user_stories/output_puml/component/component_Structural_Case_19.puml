@@ -7,4 +7,5 @@ component "Clerks" as Clerks
 ClaimsPortal --> OcrEngine : communicates with
 Engine --> S3FileStore : uses
 Clerks --> Desktops : uses
+OcrEngine --> S3FileStore : use
 @enduml

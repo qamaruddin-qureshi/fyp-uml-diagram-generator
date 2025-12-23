@@ -8,4 +8,6 @@ component "Geotab Telematics Api" <<external>> as GeotabTelematicsApi
 TrackingUi --> FleetService : sends to
 FleetService --> PostgreSQL : stores in
 PostgreSQL --> Rabbitmq : uses
+TrackingUi --> Rabbitmq : use
+TrackingUi --> GeotabTelematicsApi : integrate with
 @enduml

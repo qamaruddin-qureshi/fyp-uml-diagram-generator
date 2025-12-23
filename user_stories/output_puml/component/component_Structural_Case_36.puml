@@ -3,6 +3,9 @@ skinparam componentStyle uml2
 component "Wallet App" as WalletApp
 component "Smart Contract" as SmartContract
 component "Blockchain Node" as BlockchainNode
+component "Rpc Provider" <<Component>> as RpcProvider
 WalletApp --> SmartContract : communicates with
 WalletApp --> SmartContract : interacts
+WalletApp --> RpcProvider : interact via
+RpcProvider --> BlockchainNode : connect to
 @enduml

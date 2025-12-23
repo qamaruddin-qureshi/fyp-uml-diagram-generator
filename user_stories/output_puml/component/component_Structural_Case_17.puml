@@ -3,6 +3,8 @@ skinparam componentStyle uml2
 component "Client Ui" <<frontend>> as ClientUi
 component "Messaging Service" as MessagingService
 database "MongoDB" as MongoDB
+component "PayPal" <<Component>> as PayPal
 ClientUi --> MessagingService : communicates with
 MessagingService --> MongoDB : accesses
+MessagingService --> PayPal : integrate with
 @enduml

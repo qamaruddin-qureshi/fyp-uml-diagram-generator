@@ -1257,6 +1257,54 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         except Exception as e:
             logger.error(f"Failed to load technology mappings: {e}")
     
+    def _process_text(self, text):
+        """
+        Process text with dependency parser and custom NER.
+        Ensures both dependency tree (from parsing model) and entities (from NER model) are present.
+        """
+        import spacy
+        
+        # 1. Parsing Model (Dependencies)
+        if not hasattr(self, 'parser_model'):
+            try:
+                # Prefer the large model if available (consistent with rest of project)
+                logger.info("Loading en_core_web_lg for dependency parsing...")
+                self.parser_model = spacy.load("en_core_web_lg")
+            except OSError:
+                try:
+                    logger.warning("en_core_web_lg not found, falling back to en_core_web_sm")
+                    self.parser_model = spacy.load("en_core_web_sm")
+                except OSError:
+                    logger.warning("no standard spaCy model found, falling back to blank model (no deps)")
+                    self.parser_model = spacy.blank("en")
+        
+        # Use parser model for Doc creation (tokens + deps)
+        doc = self.parser_model(text)
+        
+        # 2. NER Model (Entities)
+        # Apply custom NER entities to the parsed doc
+        if self.ner_model:
+            try:
+                ner_doc = self.ner_model(text)
+                
+                # Filter compatible spans
+                new_ents = []
+                for ent in ner_doc.ents:
+                    # Snap to tokens in the parser doc
+                    # (Tokenization might differ slightly, so we use char offsets)
+                    span = doc.char_span(ent.start_char, ent.end_char, label=ent.label_)
+                    if span:
+                        new_ents.append(span)
+                    else:
+                        # Fallback for alignment issues
+                        logger.debug(f"Entity alignment failed for {ent.text}")
+                
+                doc.ents = new_ents
+            except Exception as e:
+                logger.warning(f"Failed to merge NER entities: {e}")
+                
+        return doc
+        
     def extract(self, narration_text):
         """
         Extract components from architecture narration.
@@ -1596,6 +1644,9 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         # Stop at parens or common conjuncts
         raw = raw.split(' using ')[0]
         raw = raw.split(' to ')[0]
+        raw = raw.split(' from ')[0]
+        raw = raw.split(' via ')[0]
+        raw = raw.split(' with ')[0]
         
         return self._normalize_component_name(raw)
 
@@ -2150,30 +2201,39 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         
         # Helper to check a string against components
         def check_match(t_low):
-            # Direct match
-            for comp in self.components:
-                 if comp.lower() == t_low: return comp
-            for iface in self.interfaces:
-                 if iface.lower() == t_low: return iface
-            for ext in self.external_systems:
-                 if ext.lower() == t_low: return ext
-                 
-            # Partial match
-            candidates = []
-            for comp in self.components:
-                if comp.lower().endswith(t_low) or (len(t_low) > 3 and t_low in comp.lower()) or (len(comp) > 3 and comp.lower() in t_low):
-                     candidates.append(comp)
-            for ext in self.external_systems:
-                if ext.lower().endswith(t_low) or (len(t_low) > 3 and t_low in ext.lower()) or (len(ext) > 3 and ext.lower() in t_low):
-                     candidates.append(ext)
-            # Interface Check (Strict)
-            for iface in self.interfaces:
-                if iface.lower().endswith(t_low) or (len(t_low) > 3 and t_low in iface.lower()) or (len(iface) > 3 and iface.lower() in t_low):
-                     return iface
+            all_candidates = []
+            for c in self.components: all_candidates.append(c)
+            for i in self.interfaces: all_candidates.append(i)
+            for e in self.external_systems: all_candidates.append(e)
             
-            if len(candidates) == 1: return candidates[0]
-            suffix_matches = [c for c in candidates if c.lower().endswith(t_low)]
-            if len(suffix_matches) == 1: return suffix_matches[0]
+            # Score: 3=Exact, 2=Suffix, 1=Contains/Partial
+            scored_candidates = []
+            
+            for name in all_candidates:
+                n_low = name.lower()
+                if n_low == t_low:
+                     scored_candidates.append((name, 3))
+                elif n_low.endswith(t_low):
+                     # Guard against short suffix matches (e.g. "a" matching "Data")
+                     if len(t_low) > 2:
+                         scored_candidates.append((name, 2))
+                elif t_low in n_low and len(t_low) > 3:
+                     scored_candidates.append((name, 1))
+                elif n_low in t_low and len(n_low) > 3:
+                     scored_candidates.append((name, 1))
+            
+            if not scored_candidates:
+                return None
+                
+            # Get highest score
+            max_score = max(s for n, s in scored_candidates)
+            best_candidates = [n for n, s in scored_candidates if s == max_score]
+            
+            if len(best_candidates) == 1:
+                return best_candidates[0]
+            
+            # If ambiguity at max score (e.g. multiple Suffixes), fail
+            # logger.debug(f"Ambiguous coref for '{t_low}': {best_candidates}")
             return None
 
         # 2. Ignored terms
@@ -2210,7 +2270,9 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         for sent in doc.sents:
             # Find root verbs
             for token in sent:
+                logger.debug(f"Scan: {token.text} ({token.pos_}/{token.lemma_})")
                 if token.pos_ == "VERB" and token.lemma_ in interaction_verbs:
+                    logger.debug(f"Hit VERB: {token.text}")
                     
                     # 1. Identify Subject
                     subj_token = None
@@ -2222,7 +2284,21 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
                     source = None
                     if subj_token:
                         source = self._resolve_coreference(subj_token)
-                    
+                        # Inference: If subject is Proper Noun but not in components, add it
+                        if not source and subj_token.pos_ == "PROPN":
+                            # Get noun chunk
+                            phrase = subj_token.text
+                            for chunk in doc.noun_chunks:
+                                if chunk.start <= subj_token.i < chunk.end:
+                                    phrase = self._normalize_component_name(chunk.text)
+                                    break
+                            
+                            if phrase and phrase[0].isupper() and len(phrase) > 2:
+                                if phrase not in self.components:
+                                    logger.info(f"Inferring component from subject: {phrase}")
+                                    self._add_component(phrase, 'Component')
+                                source = phrase
+
                     # Handle Implicit Context (System/It)
                     if source == 'SYSTEM_REF' or (not source and not subj_token):
                          if last_subject:
@@ -2230,34 +2306,91 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
                     
                     # 2. Identify Objects
                     targets = []
-                    # Direct objects
-                    for child in token.children:
-                        if child.dep_ in ('dobj', 'attr', 'dative'):
-                            t = self._resolve_coreference(child)
-                            if t and t != 'SYSTEM_REF': targets.append((t, token.lemma_))
+                    
+                    # Helper to extract from a token (recursive-ish)
+                    def extract_targets_from_node(node, rel_prefix=""):
+                        hits = []
+                        # Check node itself (if it's not the verb)
+                        if node != token:
+                            t = self._resolve_coreference(node)
+                            # Inference for Object
+                            if not t and node.pos_ == "PROPN":
+                                phrase = node.text
+                                for chunk in doc.noun_chunks:
+                                    if chunk.start <= node.i < chunk.end:
+                                        phrase = self._normalize_component_name(chunk.text)
+                                        break
+                                if phrase and phrase[0].isupper() and len(phrase) > 2:
+                                    if phrase not in self.components:
+                                         logger.info(f"Inferring component from object: {phrase}")
+                                         self._add_component(phrase, 'Component')
+                                    t = phrase
                             
-                            # Check for "via" on the object (e.g. interacts with X via Y)
-                            # "interacts with X" -> X is pobj usually.
-                            
-                    # Prepositional objects (e.g. via X, to Y, with Z)
-                    for child in token.children:
-                        if child.dep_ == 'prep':
-                            # Check the object of preposition
-                            for pobj in child.children:
-                                if pobj.dep_ in ('pobj', 'dobj'):
-                                    t = self._resolve_coreference(pobj)
-                                    if t and t != 'SYSTEM_REF':
-                                        targets.append((t, f"{token.lemma_} {child.text}"))
+                            if t and t != 'SYSTEM_REF':
+                                desc = token.lemma_
+                                if rel_prefix: desc = f"{token.lemma_} {rel_prefix}"
+                                hits.append((t, desc))
+                                # logger.debug(f"Target found: {t} via {desc}")
+                        
+                        # Check children (Prepositions)
+                        for child in node.children:
+                            if child.dep_ == 'prep':
+                                for pobj in child.children:
+                                    if pobj.dep_ in ('pobj', 'dobj'):
+                                        # logger.debug(f"Exploring prep: {child.text}, pobj: {pobj.text}")
+                                        # Found a target via preposition
+                                        prep_text = child.text
+                                        if rel_prefix: prep_text = f"{rel_prefix} {child.text}"
                                         
-                                        # Check recursive dependencies for the target (e.g. via Z)
-                                        for subchild in pobj.children:
-                                            if subchild.dep_ == 'prep' and subchild.text == 'via':
-                                                for subpobj in subchild.children:
-                                                    if subpobj.dep_ == 'pobj':
-                                                        via_t = self._resolve_coreference(subpobj)
-                                                        if via_t and via_t != 'SYSTEM_REF':
-                                                            targets.append((via_t, 'via'))
+                                        # Recurse? No, just extract from pobj
+                                        # But pobj might have MORE preps (via Y via Z)
+                                        # We accept pobj as target
+                                        t_pobj = self._resolve_coreference(pobj)
+                                        
+                                        # Inference
+                                        if not t_pobj and pobj.pos_ == "PROPN":
+                                            phrase = pobj.text
+                                            for chunk in doc.noun_chunks:
+                                                if chunk.start <= pobj.i < chunk.end:
+                                                    phrase = self._normalize_component_name(chunk.text)
+                                                    break
+                                            if phrase and phrase[0].isupper() and len(phrase) > 2:
+                                                 if phrase not in self.components:
+                                                     logger.info(f"Inferring component from pobj: {phrase}")
+                                                     self._add_component(phrase, 'Component')
+                                                 t_pobj = phrase
+                                        
+                                        if t_pobj and t_pobj != 'SYSTEM_REF':
+                                            desc = f"{token.lemma_} {prep_text}"
+                                            hits.append((t_pobj, desc))
+                                            # logger.debug(f"Target found via prep: {t_pobj}")
+                                            
+                                        # Continue traversal from pobj?
+                                        # e.g. "via consumer group"
+                                        hits.extend(extract_targets_from_node(pobj, prep_text))
+                                        
+                        return hits
 
+                    # Check direct children of Verb
+                    for child in token.children:
+                        if child.dep_ in ('dobj', 'attr', 'dative', 'oprd'):
+                            # logger.debug(f"Checking direct object: {child.text}")
+                            # The direct object itself might be a component (e.g. "Process uses X")
+                            # Or it's a noun like "messages" which has preps "to Y"
+                            targets.extend(extract_targets_from_node(child, ""))
+                            
+                        elif child.dep_ == 'prep':
+                             # logger.debug(f"Checking verb prep: {child.text}")
+                             # Preposition directly on verb (e.g. "writes to X")
+                             # We delegate to helper to find pobj
+                             # We pass verb as node? No.
+                             # We need to look INTO prep.
+                             for pobj in child.children:
+                                  if pobj.dep_ in ('pobj', 'dobj'):
+                                      # This is the target
+                                      targets.extend(extract_targets_from_node(pobj, child.text))
+
+                    # logger.debug(f"Source: {source}, Targets: {targets}")
                     # 3. Add Relationships
                     if source and source != 'SYSTEM_REF':
                          last_subject = source

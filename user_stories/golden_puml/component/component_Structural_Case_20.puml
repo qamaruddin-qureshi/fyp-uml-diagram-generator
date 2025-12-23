@@ -3,6 +3,8 @@ skinparam componentStyle uml2
 component "Client Ui" <<frontend>> as ClientUi
 component "Backend Service" <<backend>> as BackendService
 database "MongoDB" as MongoDB
+component "Stripe Gateway" <<Component>> as StripeGateway
 ClientUi --> BackendService : communicates with
 BackendService --> MongoDB : accesses
+BackendService --> StripeGateway : integrate with
 @enduml

@@ -8,4 +8,6 @@ component "Staging Bucket" as StagingBucket
 component "Data Warehouse" as DataWarehouse
 IngestionService --> TransformationJob : sends to
 TransformationJob --> DataWarehouse : uses
+DataPipeline --> IngestionService : consist of
+IngestionService --> StagingBucket : send via
 @enduml
