@@ -93,8 +93,8 @@ TEST_SUITES = {
         {"storyid": 506, "storytext": "As a Customer, I want to place an Order with shippingAddress."},
         {"storyid": 507, "storytext": "As a Customer, I want to view my OrderHistory for orderDate and totalAmount."},
         {"storyid": 508, "storytext": "As a Customer, I want to manage my Addresses (add, edit, delete)."},
-        {"storyid": 509, "storytext": "As Administrator, I want to manage a Product (add, edit, delete) including name, price, and description."},
-        {"storyid": 510, "storytext": "As Administrator, I want to manage a Category (create, rename, delete)."},
+        {"storyid": 509, "storytext": "As Administrator, I want to add, edit, delete a Product including name, price, and description."},
+        {"storyid": 510, "storytext": "As Administrator, I want to create, rename, delete a Category."},
         {"storyid": 511, "storytext": "As Administrator, I want to view Order details."}
     ],
     "CRM_Advanced": [
