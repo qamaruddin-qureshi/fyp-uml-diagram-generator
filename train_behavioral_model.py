@@ -170,7 +170,7 @@ def create_config_file(output_path="./config.cfg"):
     print(f"Created {output_path}.")
 
 
-def run_training(config_path="./config.cfg", train_data_path="./train.spacy", output_model_path="./my_uml_model"):
+def run_training(config_path="./config.cfg", train_data_path="./train.spacy", output_model_path="./behavioral_uml_model"):
     print("\n--- Starting Model Training ---")
     try:
         train(
@@ -197,8 +197,8 @@ if __name__ == "__main__":
             if os.path.exists(file):
                 os.remove(file)
                 print(f"Removed old {file}.")
-        if os.path.exists("./my_uml_model"):
-            shutil.rmtree("./my_uml_model")
+        if os.path.exists("./behavioral_uml_model"):
+            shutil.rmtree("./behavioral_uml_model")
             print("Removed old model directory.")
 
         # Split into train/dev sets
