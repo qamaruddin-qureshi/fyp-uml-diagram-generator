@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Web Ui" <<frontend>> as WebUi
+component "Backend Service" <<backend>> as BackendService
+database "PostgreSQL" as PostgreSQL
+database "Redis" as Redis
+WebUi --> BackendService : communicates with
+PostgreSQL --> Redis : uses
+BackendService --> Redis : uses
+BackendService --> PostgreSQL : accesses
+@enduml

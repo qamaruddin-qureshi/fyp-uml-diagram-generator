@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Auth Service" as AuthService
+database "Central Database" as CentralDatabase
+interface "GraphQL API" as ifaceGraphQLAPI
+AuthService -- ifaceGraphQLAPI
+AuthService --> CentralDatabase : accesses
+@enduml

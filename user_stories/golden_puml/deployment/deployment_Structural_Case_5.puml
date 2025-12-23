@@ -1,0 +1,13 @@
+@startuml
+node "Cloud Vm" <<virtual machine>> {
+}
+node "Container" <<container>> {
+  artifact "Web Ui"
+  artifact "Backend Service"
+  node "MySQL" <<database>> {
+  }
+}
+actor "Web Browser" <<browser>>
+"Web Ui" --> "Backend Service" : connects to
+"Web Browser" --> "Backend Service" : accesses
+@enduml

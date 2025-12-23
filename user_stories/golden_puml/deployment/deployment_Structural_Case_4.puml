@@ -1,0 +1,15 @@
+@startuml
+node "Aws Ec2" <<virtual machine>> {
+}
+node "PostgreSQL" <<database>> {
+}
+node "Ec2 Instance" <<virtual machine>> {
+}
+actor "Tablet" <<device>>
+artifact "Tracking Ui"
+artifact "Fleet Service"
+artifact "Rabbitmq"
+"Tracking Ui" --> "Fleet Service" : connects to
+"PostgreSQL" --> "Rabbitmq" : uses
+"Tablet" --> "Fleet Service" : accesses
+@enduml

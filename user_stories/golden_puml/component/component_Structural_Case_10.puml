@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Course Management Service" as CourseManagementService
+database "Nosql Database" as NosqlDatabase
+database "Redis" as Redis
+ClientUi --> CourseManagementService : communicates with
+NosqlDatabase --> Redis : uses
+CourseManagementService --> Redis : uses
+CourseManagementService --> NosqlDatabase : accesses
+@enduml

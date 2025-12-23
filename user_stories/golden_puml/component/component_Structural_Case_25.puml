@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Payment Service" as PaymentService
+database "Nosql Database" as NosqlDatabase
+database "Redis" as Redis
+interface "REST API" as ifaceRESTAPI
+PaymentService -- ifaceRESTAPI
+NosqlDatabase --> Redis : uses
+PaymentService --> Redis : uses
+PaymentService --> NosqlDatabase : accesses
+@enduml

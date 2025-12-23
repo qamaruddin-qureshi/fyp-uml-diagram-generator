@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Order Service" as OrderService
+database "Central Database" as CentralDatabase
+interface "GraphQL API" as ifaceGraphQLAPI
+OrderService -- ifaceGraphQLAPI
+OrderService --> CentralDatabase : accesses
+@enduml

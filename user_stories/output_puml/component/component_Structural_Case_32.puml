@@ -1,0 +1,10 @@
+@startuml
+skinparam componentStyle uml2
+package "Sales Layer" {
+  component "Order Module" as OrderModule
+  component "Cart Service" as CartService
+}
+package "Inventory Module" {
+  component "Stock Service" as StockService
+}
+@enduml

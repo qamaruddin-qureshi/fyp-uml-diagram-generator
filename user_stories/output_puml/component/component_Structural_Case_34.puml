@@ -1,0 +1,9 @@
+@startuml
+skinparam componentStyle uml2
+component "Order Service" as OrderService
+component "Events Topic" as EventsTopic
+component "Kafka" as Kafka
+component "Inventory Service" as InventoryService
+interface "Messages From The Events Topic Via A Consumer Group" as ifaceMessagesFromTheEventsTopicViaAConsumerGroup
+EventsTopic ..> ifaceMessagesFromTheEventsTopicViaAConsumerGroup : use
+@enduml

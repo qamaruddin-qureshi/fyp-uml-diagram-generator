@@ -1,0 +1,12 @@
+@startuml
+node "Linux Server" <<server>> {
+}
+node "Container" <<container>> {
+  artifact "Mobile App"
+  artifact "Backend Service"
+}
+actor "Desktop" <<device>>
+actor "Mobile Frontend" <<device>>
+"Mobile Frontend" --> "Backend Service" : connects to
+"Desktop" --> "Mobile App" : accesses
+@enduml

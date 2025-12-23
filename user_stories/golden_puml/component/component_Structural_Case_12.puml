@@ -1,0 +1,10 @@
+@startuml
+skinparam componentStyle uml2
+component "Web Ui" <<frontend>> as WebUi
+component "Payment Service" as PaymentService
+database "Central Database" as CentralDatabase
+interface "Http" as ifaceHttp
+PaymentService -- ifaceHttp
+WebUi --> PaymentService : communicates with
+PaymentService --> CentralDatabase : accesses
+@enduml

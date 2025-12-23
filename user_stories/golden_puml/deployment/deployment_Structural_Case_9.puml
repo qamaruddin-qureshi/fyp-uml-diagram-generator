@@ -1,0 +1,11 @@
+@startuml
+node "Server" <<server>> {
+}
+node "Container" <<container>> {
+  artifact "Api Service"
+  node "MySQL" <<database>> {
+  }
+}
+actor "Desktop" <<device>>
+"Desktop" --> "Api Service" : accesses
+@enduml

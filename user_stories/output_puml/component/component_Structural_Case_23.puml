@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Payment Service" as PaymentService
+database "MongoDB" as MongoDB
+interface "REST API" as ifaceRESTAPI
+PaymentService -- ifaceRESTAPI
+PaymentService --> MongoDB : accesses
+@enduml

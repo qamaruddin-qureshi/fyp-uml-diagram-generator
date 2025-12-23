@@ -1,0 +1,10 @@
+@startuml
+skinparam componentStyle uml2
+component "Claims Portal" as ClaimsPortal
+component "Ocr Engine" as OcrEngine
+component "Desktops" as Desktops
+component "Clerks" as Clerks
+ClaimsPortal --> OcrEngine : communicates with
+Engine --> S3FileStore : uses
+Clerks --> Desktops : uses
+@enduml

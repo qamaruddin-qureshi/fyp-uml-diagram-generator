@@ -1,0 +1,5 @@
+@startuml
+artifact "Client Ui"
+artifact "Course Management Service"
+"Client Ui" --> "Course Management Service" : connects to
+@enduml

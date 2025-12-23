@@ -1,0 +1,11 @@
+@startuml
+node "Dedicated Host" <<server>> {
+}
+node "Docker Container" <<container>> {
+  artifact "Client Ui"
+  artifact "Api Service"
+}
+actor "Mobile Device" <<device>>
+"Client Ui" --> "Api Service" : connects to
+"Mobile Device" --> "Api Service" : accesses
+@enduml

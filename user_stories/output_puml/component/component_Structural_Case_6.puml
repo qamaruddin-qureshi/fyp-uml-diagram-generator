@@ -1,0 +1,13 @@
+@startuml
+skinparam componentStyle uml2
+component "Mobile App" <<frontend>> as MobileApp
+component "Backend Service" <<backend>> as BackendService
+database "Nosql Database" as NosqlDatabase
+database "Redis" as Redis
+interface "Http" as ifaceHttp
+BackendService -- ifaceHttp
+MobileApp --> BackendService : communicates with
+NosqlDatabase --> Redis : uses
+BackendService --> Redis : uses
+BackendService --> NosqlDatabase : accesses
+@enduml

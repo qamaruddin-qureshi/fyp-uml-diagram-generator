@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Payment Service" as PaymentService
+database "Central Database" as CentralDatabase
+interface "REST API" as ifaceRESTAPI
+PaymentService -- ifaceRESTAPI
+PaymentService --> CentralDatabase : accesses
+@enduml

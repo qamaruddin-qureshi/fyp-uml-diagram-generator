@@ -1,0 +1,10 @@
+@startuml
+skinparam componentStyle uml2
+component "Web Ui" <<frontend>> as WebUi
+component "Backend Service" <<backend>> as BackendService
+database "MySQL" as MySQL
+interface "Http" as ifaceHttp
+BackendService -- ifaceHttp
+WebUi --> BackendService : communicates with
+BackendService --> MySQL : accesses
+@enduml

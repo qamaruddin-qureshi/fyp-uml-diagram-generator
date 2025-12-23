@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Auth Service" as AuthService
+database "Relational Database" as RelationalDatabase
+database "Redis" as Redis
+interface "REST API" as ifaceRESTAPI
+AuthService -- ifaceRESTAPI
+RelationalDatabase --> Redis : uses
+AuthService --> Redis : uses
+AuthService --> RelationalDatabase : accesses
+@enduml

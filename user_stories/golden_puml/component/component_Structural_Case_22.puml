@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Api Service" <<backend>> as ApiService
+database "MongoDB" as MongoDB
+interface "Http" as ifaceHttp
+ApiService -- ifaceHttp
+ApiService --> MongoDB : accesses
+@enduml

@@ -1,0 +1,13 @@
+@startuml
+skinparam componentStyle uml2
+component "Zapper Api" <<backend>> as ZapperApi
+component "Ethereum Mainnet" as EthereumMainnet
+component "Quicknode" <<frontend>> as Quicknode
+component "Typescript" as Typescript
+component "Simple Storage Service" as SimpleStorageService
+component "Decentralized Finance Dashboard" as DecentralizedFinanceDashboard
+DecentralizedFinanceDashboard --> ZapperApi : uses
+Dashboard --> SimpleStorageService : uses
+Dashboard --> EthereumMainnet : communicates with
+Dashboard --> EthereumMainnet : interacts
+@enduml

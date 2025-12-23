@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Tracking Ui" <<frontend>> as TrackingUi
+component "Fleet Service" as FleetService
+database "PostgreSQL" as PostgreSQL
+component "Rabbitmq" as Rabbitmq
+component "Geotab Telematics Api" <<external>> as GeotabTelematicsApi
+TrackingUi --> FleetService : sends to
+FleetService --> PostgreSQL : stores in
+PostgreSQL --> Rabbitmq : uses
+@enduml

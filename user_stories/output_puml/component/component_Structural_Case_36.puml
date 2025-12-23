@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Wallet App" as WalletApp
+component "Smart Contract" as SmartContract
+component "Blockchain Node" as BlockchainNode
+WalletApp --> SmartContract : communicates with
+WalletApp --> SmartContract : interacts
+@enduml

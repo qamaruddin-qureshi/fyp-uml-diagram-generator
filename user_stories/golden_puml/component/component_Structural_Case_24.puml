@@ -1,0 +1,13 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Auth Service" as AuthService
+database "MongoDB" as MongoDB
+database "Redis" as Redis
+interface "REST API" as ifaceRESTAPI
+AuthService -- ifaceRESTAPI
+ClientUi --> AuthService : communicates with
+MongoDB --> Redis : uses
+AuthService --> Redis : uses
+AuthService --> MongoDB : accesses
+@enduml

@@ -1,0 +1,9 @@
+@startuml
+skinparam componentStyle uml2
+component "User Service" as UserService
+component "Billing Service" as BillingService
+interface "REST API" as ifaceRESTAPI
+UserService -- ifaceRESTAPI
+interface "Authentication" as ifaceAuthentication
+UserService -- ifaceAuthentication
+@enduml

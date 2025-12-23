@@ -1,0 +1,10 @@
+@startuml
+skinparam componentStyle uml2
+component "Web Ui" <<frontend>> as WebUi
+component "Api Service" <<backend>> as ApiService
+database "MongoDB" as MongoDB
+interface "Http" as ifaceHttp
+ApiService -- ifaceHttp
+WebUi --> ApiService : communicates with
+ApiService --> MongoDB : accesses
+@enduml

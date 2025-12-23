@@ -1,0 +1,9 @@
+@startuml
+node "Server" <<server>> {
+}
+node "Container" <<container>> {
+  artifact "Auth Service"
+}
+actor "Desktop" <<device>>
+"Desktop" --> "Auth Service" : accesses
+@enduml

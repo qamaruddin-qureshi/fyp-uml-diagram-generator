@@ -1,0 +1,13 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Course Management Service" as CourseManagementService
+database "Central Database" as CentralDatabase
+database "Redis" as Redis
+interface "GraphQL API" as ifaceGraphQLAPI
+CourseManagementService -- ifaceGraphQLAPI
+ClientUi --> CourseManagementService : communicates with
+CentralDatabase --> Redis : uses
+CourseManagementService --> Redis : uses
+CourseManagementService --> CentralDatabase : accesses
+@enduml

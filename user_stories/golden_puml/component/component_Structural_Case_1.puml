@@ -1,0 +1,10 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Api Service" <<backend>> as ApiService
+database "Central Database" as CentralDatabase
+interface "GraphQL API" as ifaceGraphQLAPI
+ApiService -- ifaceGraphQLAPI
+ClientUi --> ApiService : communicates with
+ApiService --> CentralDatabase : accesses
+@enduml

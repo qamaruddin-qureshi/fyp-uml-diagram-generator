@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Data Pipeline" as DataPipeline
+component "Ingestion Service" as IngestionService
+component "Transformation Job" as TransformationJob
+component "Loader" as Loader
+component "Staging Bucket" as StagingBucket
+component "Data Warehouse" as DataWarehouse
+IngestionService --> TransformationJob : sends to
+TransformationJob --> DataWarehouse : uses
+@enduml

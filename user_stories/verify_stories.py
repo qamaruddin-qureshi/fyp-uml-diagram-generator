@@ -12,8 +12,28 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from uml_extractors import ClassDiagramExtractor, UseCaseDiagramExtractor, SequenceDiagramExtractor, ActivityDiagramExtractor
+from uml_extractors import (
+    ClassDiagramExtractor,
+    UseCaseDiagramExtractor,
+    SequenceDiagramExtractor,
+    ActivityDiagramExtractor,
+    ComponentDiagramExtractor,
+    DeploymentDiagramExtractor
+)
 from uml_generator import DiagramGenerator
+try:
+    import structural_test_data as std
+    import importlib
+    importlib.reload(std)
+    from structural_test_data import COMPONENT_TEST_DATA, DEPLOYMENT_TEST_DATA
+    print(f"DEBUG source: {std.__file__}")
+    print(f"DEBUG count: {len(COMPONENT_TEST_DATA)}")
+except ImportError:
+    # Fallback if running from root
+    from user_stories.structural_test_data import COMPONENT_TEST_DATA, DEPLOYMENT_TEST_DATA
+    import user_stories.structural_test_data as std
+    print(f"DEBUG source: {std.__file__}")
+
 
 # Configure logging
 logging.basicConfig(level=logging.ERROR, format='%(levelname)s: %(message)s')
@@ -217,6 +237,115 @@ def verify_suite(suite_name, stories, update_gold=False):
     
     return all_passed
 
+def verify_structural_suite(suite_name, test_data, diagram_type, update_gold=False):
+    """
+    Verify structural diagrams (Component, Deployment) from narrations.
+    test_data: List of dicts, each having 'narration' key.
+    """
+    print(f"\nVerifying Structural Suite: {suite_name} ({diagram_type})")
+    print(f"DEBUG: Loaded {len(test_data)} test items.")
+    
+    # Load NER Model (Architecture)
+    nlp_standard = spacy.blank("en")
+    MODEL_PATH = os.path.join(parent_dir, "architecture_uml_model", "model-best")
+    nlp_ner = None
+    if os.path.exists(MODEL_PATH):
+        try:
+            nlp_ner = spacy.load(MODEL_PATH)
+            print(f"Loaded Architecture NER model from: {MODEL_PATH}")
+        except:
+            print(f"Warning: Failed to load model at {MODEL_PATH}")
+    else:
+        print(f"Warning: No Architecture NER model found at {MODEL_PATH}. Using fallback/regex.")
+
+    # Select Extractor
+    if diagram_type == 'component':
+        ExtractorCls = ComponentDiagramExtractor
+    elif diagram_type == 'deployment':
+        ExtractorCls = DeploymentDiagramExtractor
+    else:
+        print(f"Error: Unknown diagram type {diagram_type}")
+        return False
+
+    generator = DiagramGenerator()
+    
+    # Directories
+    type_output_dir = os.path.join(OUTPUT_DIR, diagram_type)
+    type_golden_dir = os.path.join(GOLDEN_DIR, diagram_type)
+    type_static_dir = os.path.join(current_dir, "output_static", diagram_type)
+    
+    os.makedirs(type_output_dir, exist_ok=True)
+    os.makedirs(type_golden_dir, exist_ok=True)
+    os.makedirs(type_static_dir, exist_ok=True)
+
+    all_passed = True
+
+    for i, item in enumerate(test_data):
+        test_id = item.get('id', i+1)
+        narration = item.get('narration', '')
+        # Using sanitized string or just ID for filename? 
+        # behavioral uses "suite_name", but here we have distinct test cases.
+        # Let's use suite_name + id
+        project_id = f"{suite_name}_Case_{test_id}"
+        
+        # 1. Extract
+        try:
+             # component extractor needs standard nlp + ner
+            extractor = ExtractorCls(nlp_standard, ner_model=nlp_ner)
+            # The extract method for Architecture extractors takes a single string `narration_text`
+            elements = extractor.extract(narration)
+        except Exception as e:
+            print(f"FAILED: Extraction error for {project_id}: {e}")
+            all_passed = False
+            continue
+
+        # 2. Generate
+        try:
+            generator.generate_diagram(project_id, diagram_type, elements, static_dir=type_static_dir, puml_dir=type_output_dir)
+        except Exception as e:
+            print(f"FAILED: Generation error for {project_id}: {e}")
+            all_passed = False
+            continue
+
+        # 3. Compare
+        filename = f"{diagram_type}_{project_id}.puml"
+        generated_path = os.path.join(type_output_dir, filename)
+        golden_path = os.path.join(type_golden_dir, filename)
+        
+        if not os.path.exists(generated_path):
+             print(f"FAILED: Output file missing for {project_id}")
+             all_passed = False
+             continue
+
+        with open(generated_path, 'r') as f:
+            generated_content = f.read()
+
+        golden_content = ""
+        if os.path.exists(golden_path):
+            with open(golden_path, 'r') as f:
+                golden_content = f.read()
+        else:
+            if not update_gold:
+                 print(f"WARNING: No golden master found for {project_id}")
+        
+        generated_content = generated_content.strip().replace('\r\n', '\n')
+        golden_content = golden_content.strip().replace('\r\n', '\n')
+
+        if generated_content != golden_content:
+            if update_gold:
+                print(f"UPDATE: Updating golden master for {project_id}")
+                with open(golden_path, 'w') as f:
+                    f.write(generated_content)
+            else:
+                print(f"FAILED: Mismatch for {project_id}")
+                 # Optional: print diff
+                all_passed = False
+    
+    if all_passed:
+        print(f"PASS: {suite_name} ({diagram_type})")
+        
+    return all_passed
+
 def run_all():
     parser = argparse.ArgumentParser(description="Run regression tests for User Stories.")
     parser.add_argument("--update-gold", action="store_true", help="Update Golden Master files with current output.")
@@ -234,21 +363,26 @@ def run_all():
             print("    2. Force ALL suites: python verify_stories.py --update-gold --force-all")
             sys.exit(1)
 
-    # Determine validation scope
-    suites_to_run = {}
-    if args.suite:
-        if args.suite in TEST_SUITES:
-            suites_to_run[args.suite] = TEST_SUITES[args.suite]
-        else:
-            print(f"ERROR: Suite '{args.suite}' not found.")
-            print(f"Available suites: {list(TEST_SUITES.keys())}")
-            sys.exit(1)
-    else:
-        suites_to_run = TEST_SUITES
-
     results = {}
-    for name, stories in suites_to_run.items():
-        results[name] = verify_suite(name, stories, update_gold=args.update_gold)
+    
+    # 1. Run Behavioral Suites
+    if args.suite:
+        # If specific suite requested
+        if args.suite in TEST_SUITES:
+            results[args.suite] = verify_suite(args.suite, TEST_SUITES[args.suite], update_gold=args.update_gold)
+        # Check if it's one of the structural suites? naming convention...
+        elif args.suite == "Structural_Component":
+             results["Structural_Component"] = verify_structural_suite("Structural", COMPONENT_TEST_DATA, "component", update_gold=args.update_gold)
+        elif args.suite == "Structural_Deployment":
+             results["Structural_Deployment"] = verify_structural_suite("Structural", DEPLOYMENT_TEST_DATA, "deployment", update_gold=args.update_gold)
+    else:
+        # Run ALL behavioral
+        for name, stories in TEST_SUITES.items():
+            results[name] = verify_suite(name, stories, update_gold=args.update_gold)
+        
+        # Run Structural
+        results["Structural_Component"] = verify_structural_suite("Structural", COMPONENT_TEST_DATA, "component", update_gold=args.update_gold)
+        results["Structural_Deployment"] = verify_structural_suite("Structural", DEPLOYMENT_TEST_DATA, "deployment", update_gold=args.update_gold)
 
     print("\n=== SUMMARY ===")
     all_passed = True

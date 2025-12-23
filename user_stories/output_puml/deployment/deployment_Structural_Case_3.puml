@@ -1,0 +1,14 @@
+@startuml
+node "Dedicated Host" <<server>> {
+}
+node "Docker Container" <<container>> {
+  artifact "Mobile App"
+  artifact "Auth Service"
+  node "MongoDB" <<database>> {
+  }
+}
+actor "Mobile Frontend" <<device>>
+actor "Mobile Device" <<device>>
+"Mobile Frontend" --> "Auth Service" : connects to
+"Mobile Device" --> "Mobile App" : accesses
+@enduml

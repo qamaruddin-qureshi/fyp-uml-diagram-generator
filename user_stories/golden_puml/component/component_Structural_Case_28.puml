@@ -1,0 +1,13 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Backend Service" <<backend>> as BackendService
+database "Relational Database" as RelationalDatabase
+database "Redis" as Redis
+interface "GraphQL API" as ifaceGraphQLAPI
+BackendService -- ifaceGraphQLAPI
+ClientUi --> BackendService : communicates with
+RelationalDatabase --> Redis : uses
+BackendService --> Redis : uses
+BackendService --> RelationalDatabase : accesses
+@enduml

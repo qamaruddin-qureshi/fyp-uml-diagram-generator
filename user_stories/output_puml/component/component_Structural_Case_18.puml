@@ -1,0 +1,9 @@
+@startuml
+skinparam componentStyle uml2
+component "Messaging Service" as MessagingService
+database "Nosql Database" as NosqlDatabase
+database "Redis" as Redis
+NosqlDatabase --> Redis : uses
+MessagingService --> Redis : uses
+MessagingService --> NosqlDatabase : accesses
+@enduml

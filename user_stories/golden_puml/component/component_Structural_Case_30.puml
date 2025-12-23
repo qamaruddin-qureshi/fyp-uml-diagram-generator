@@ -1,0 +1,13 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Messaging Service" as MessagingService
+database "Nosql Database" as NosqlDatabase
+database "Redis" as Redis
+interface "Http" as ifaceHttp
+MessagingService -- ifaceHttp
+ClientUi --> MessagingService : communicates with
+NosqlDatabase --> Redis : uses
+MessagingService --> Redis : uses
+MessagingService --> NosqlDatabase : accesses
+@enduml

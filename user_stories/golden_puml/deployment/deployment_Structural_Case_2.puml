@@ -1,0 +1,9 @@
+@startuml
+node "Cloud Vm" <<virtual machine>> {
+}
+node "Docker Container" <<container>> {
+  artifact "Auth Service"
+}
+actor "Mobile Device" <<device>>
+"Mobile Device" --> "Auth Service" : accesses
+@enduml

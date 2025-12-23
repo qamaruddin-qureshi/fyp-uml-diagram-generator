@@ -1,0 +1,8 @@
+@startuml
+skinparam componentStyle uml2
+component "Client Ui" <<frontend>> as ClientUi
+component "Messaging Service" as MessagingService
+database "MongoDB" as MongoDB
+ClientUi --> MessagingService : communicates with
+MessagingService --> MongoDB : accesses
+@enduml

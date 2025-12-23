@@ -1,0 +1,11 @@
+@startuml
+skinparam componentStyle uml2
+component "Api Service" <<backend>> as ApiService
+database "MySQL" as MySQL
+database "Redis" as Redis
+interface "GraphQL API" as ifaceGraphQLAPI
+ApiService -- ifaceGraphQLAPI
+MySQL --> Redis : uses
+ApiService --> Redis : uses
+ApiService --> MySQL : accesses
+@enduml

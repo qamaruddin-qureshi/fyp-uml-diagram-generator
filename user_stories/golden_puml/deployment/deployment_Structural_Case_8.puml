@@ -1,0 +1,7 @@
+@startuml
+node "PostgreSQL" <<database>> {
+}
+artifact "Web Ui"
+artifact "Backend Service"
+"Web Ui" --> "Backend Service" : connects to
+@enduml
