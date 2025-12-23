@@ -126,7 +126,6 @@ logs/
 # SpaCy Models - These are large and should be regenerated locally
 *.spacy
 *.model
-my_uml_model/
 behavioral_uml_model/
 architecture_uml_model/
 models/
