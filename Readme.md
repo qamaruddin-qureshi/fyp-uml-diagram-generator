@@ -38,6 +38,23 @@ The generator uses standard PlantUML arrow notation to represent relationships i
 | **Aggregation** | `o--` | Solid line with hollow diamond. "Has-a" relationship (weak/shared ownership). |
 | **Composition** | `*--` | Solid line with filled diamond. "Part-of" relationship (strong/exclusive ownership). |
 
+## Component Diagram Notation
+Represents the organization and wiring of physical components in a system.
+| Element | Notation | Description |
+| :--- | :---: | :--- |
+| **Component** | `[Name]` | A modular part of a system (e.g., Database, Service). |
+| **Interface** | `()` | A provided or required interface. |
+| **Dependency** | `-->` | Dashed arrow indicating usage. |
+
+## Deployment Diagram Notation
+Visualizes the execution architecture of systems, devices, and artifacts.
+| Element | Notation | Description |
+| :--- | :---: | :--- |
+| **Node** | `node "Name"` | A physical or virtual resource (e.g., Server, PC). |
+| **Artifact** | `artifact "Name"` | A physical piece of information (e.g., file, jar). |
+| **Device** | `actor/device` | Hardware devices (e.g., Mobile Phone). |
+
+
 ## Requirements
 Ensure you have the following dependencies installed (see `requirements.txt` for versions):
 *   Python 3.x
