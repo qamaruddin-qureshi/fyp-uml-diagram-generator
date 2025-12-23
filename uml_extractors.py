@@ -1270,6 +1270,9 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         self.components = {}
         self.external_systems = set()
         self.relationships = []
+        self.interfaces = {}
+        self.packages = {}
+        self.ports = {}
         
         # Process text with NER model
         doc = self._process_text(narration_text)
@@ -1302,6 +1305,10 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         
         # Relationships extracted via patterns (verb phrases like "sends to", "uses")
         self._extract_relationships(narration_text)
+    
+        # Robust NLP-based relationship extraction
+        if doc:
+            self._extract_relationships_nlp(doc)
         
         # Build model elements
         self._build_component_elements()
@@ -2133,6 +2140,147 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
             })
 
 
+
+
+    def _resolve_coreference(self, token_or_text):
+        """Resolve a token/text to a known component name."""
+        # 1. Basic Text Resolution
+        text = token_or_text.text if hasattr(token_or_text, 'text') else token_or_text
+        text_lower = text.strip().lower()
+        
+        # Helper to check a string against components
+        def check_match(t_low):
+            # Direct match
+            for comp in self.components:
+                 if comp.lower() == t_low: return comp
+            for iface in self.interfaces:
+                 if iface.lower() == t_low: return iface
+            for ext in self.external_systems:
+                 if ext.lower() == t_low: return ext
+                 
+            # Partial match
+            candidates = []
+            for comp in self.components:
+                if comp.lower().endswith(t_low) or (len(t_low) > 3 and t_low in comp.lower()) or (len(comp) > 3 and comp.lower() in t_low):
+                     candidates.append(comp)
+            for ext in self.external_systems:
+                if ext.lower().endswith(t_low) or (len(t_low) > 3 and t_low in ext.lower()) or (len(ext) > 3 and ext.lower() in t_low):
+                     candidates.append(ext)
+            # Interface Check (Strict)
+            for iface in self.interfaces:
+                if iface.lower().endswith(t_low) or (len(t_low) > 3 and t_low in iface.lower()) or (len(iface) > 3 and iface.lower() in t_low):
+                     return iface
+            
+            if len(candidates) == 1: return candidates[0]
+            suffix_matches = [c for c in candidates if c.lower().endswith(t_low)]
+            if len(suffix_matches) == 1: return suffix_matches[0]
+            return None
+
+        # 2. Ignored terms
+        if text_lower in ['system', 'the system', 'application', 'it', 'this']:
+            return 'SYSTEM_REF'
+            
+        # 3. Try Single Token
+        match = check_match(text_lower)
+        if match: return match
+        
+        # 4. Try Noun Chunk (if Token)
+        if hasattr(token_or_text, 'dep_'): # Is Token
+            # Find the chunk this token belongs to
+            for chunk in token_or_text.doc.noun_chunks:
+                if chunk.start <= token_or_text.i < chunk.end:
+                    # Found chunk
+                    chunk_text = chunk.text.strip().lower()
+                    if chunk_text != text_lower: # Avoid redundant check
+                        match = check_match(chunk_text)
+                        if match: return match
+                    break
+                    
+        return None
+
+    def _extract_relationships_nlp(self, doc):
+        """Robust NLP-based relationship extraction."""
+        logger.info("Extracting relationships using NLP")
+        last_subject = None
+        
+        interaction_verbs = ['communicate', 'interact', 'connect', 'send', 'use', 'access', 
+                             'integrate', 'call', 'require', 'consume', 'provide', 'expose', 
+                             'consist', 'write', 'publish', 'subscribe', 'store']
+
+        for sent in doc.sents:
+            # Find root verbs
+            for token in sent:
+                if token.pos_ == "VERB" and token.lemma_ in interaction_verbs:
+                    
+                    # 1. Identify Subject
+                    subj_token = None
+                    for child in token.children:
+                        if child.dep_ in ('nsubj', 'nsubjpass'):
+                            subj_token = child
+                            break
+                    
+                    source = None
+                    if subj_token:
+                        source = self._resolve_coreference(subj_token)
+                    
+                    # Handle Implicit Context (System/It)
+                    if source == 'SYSTEM_REF' or (not source and not subj_token):
+                         if last_subject:
+                             source = last_subject
+                    
+                    # 2. Identify Objects
+                    targets = []
+                    # Direct objects
+                    for child in token.children:
+                        if child.dep_ in ('dobj', 'attr', 'dative'):
+                            t = self._resolve_coreference(child)
+                            if t and t != 'SYSTEM_REF': targets.append((t, token.lemma_))
+                            
+                            # Check for "via" on the object (e.g. interacts with X via Y)
+                            # "interacts with X" -> X is pobj usually.
+                            
+                    # Prepositional objects (e.g. via X, to Y, with Z)
+                    for child in token.children:
+                        if child.dep_ == 'prep':
+                            # Check the object of preposition
+                            for pobj in child.children:
+                                if pobj.dep_ in ('pobj', 'dobj'):
+                                    t = self._resolve_coreference(pobj)
+                                    if t and t != 'SYSTEM_REF':
+                                        targets.append((t, f"{token.lemma_} {child.text}"))
+                                        
+                                        # Check recursive dependencies for the target (e.g. via Z)
+                                        for subchild in pobj.children:
+                                            if subchild.dep_ == 'prep' and subchild.text == 'via':
+                                                for subpobj in subchild.children:
+                                                    if subpobj.dep_ == 'pobj':
+                                                        via_t = self._resolve_coreference(subpobj)
+                                                        if via_t and via_t != 'SYSTEM_REF':
+                                                            targets.append((via_t, 'via'))
+
+                    # 3. Add Relationships
+                    if source and source != 'SYSTEM_REF':
+                         last_subject = source
+                         
+                         for target, rel_desc in targets:
+                             if source != target:
+                                 # Determine if Interface
+                                 if target in self.interfaces:
+                                     if any(v in rel_desc for v in ['provide', 'expose', 'implement']):
+                                          self.interfaces[target]['provider'] = source
+                                     else:
+                                          if source not in self.interfaces[target]['consumers']:
+                                               self.interfaces[target]['consumers'].append(source)
+                                 else:
+                                     # Component-Component
+                                     # Basic dedupe
+                                     exists = any(r['source'] == source and r['target'] == target for r in self.relationships)
+                                     if not exists:
+                                         self.relationships.append({
+                                             'source': source,
+                                             'target': target,
+                                             'type': rel_desc
+                                         })
 
 
 class DeploymentDiagramExtractor(BaseDiagramExtractor):
