@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 class BaseDiagramExtractor:
     def __init__(self, nlp_model, ner_model=None):
         self.nlp = nlp_model
+        # Ensure sentencizer is present for sentence segmentation
+        if self.nlp and "sentencizer" not in self.nlp.pipe_names:
+            try:
+                self.nlp.add_pipe("sentencizer")
+            except Exception:
+                pass
+
         self.ner_model = ner_model
         self.model_elements = []
         self.found_classes = {}
@@ -1231,9 +1238,11 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
     """
     def __init__(self, nlp_model, ner_model=None, tech_mappings_path="technology_mappings.json"):
         super().__init__(nlp_model, ner_model)
-        self.components = {}  # {name: {stereotype, interfaces, dependencies}}
+        self.components = {}  # {name: {stereotype, interfaces, dependencies, parent_package, ports}}
         self.external_systems = set()
-        self.interfaces = set()
+        self.interfaces = {}  # {name: type (provided/required)}
+        self.packages = {}    # {name: [components]}
+        self.ports = {}       # {component_name: [ports]}
         self.relationships = []
         
         # Load technology mappings
@@ -1276,6 +1285,11 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         if self.ner_model:
             # Primary: NER extracts COMPONENT, EXTERNAL_SYSTEM, INTERFACE, TECHNOLOGY
             self._extract_from_ner(doc)
+            
+            # New Extractions (Patterns)
+            self._extract_interfaces(doc)
+            self._extract_packages(doc)
+            self._extract_ports(doc)
             
             # Gap-filling: Catch entities that NER missed due to training gaps
             # This is minimal and targeted, not a full pattern extraction
@@ -1452,8 +1466,155 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
                         sys_name = normalize_external_system(match.group(0))
                         self.external_systems.add(sys_name)
     
+
+    def _extract_interfaces(self, doc):
+        """Extract provided (Lollipop) and required (Socket) interfaces."""
+        # 1. "Exposes/Provides/Offers" patterns
+        for sent in doc.sents:
+            text = sent.text.lower()
+            
+            # Find the subject (Component)
+            comp_name = self._find_component_in_text(sent.text)
+            if not comp_name:
+                continue
+                
+            # Check for verbs
+            if any(v in text for v in ['exposes', 'provides', 'offers', 'implements']):
+                # Find the object (Interface)
+                match = re.search(r'(exposes|provides|offers|implements)\s+((?:an?|the)\s+)?(.+?)(?:\.|,|$)', sent.text, re.IGNORECASE)
+                if match:
+                    interface_raw = match.group(3)
+                    # Clean up
+                    interface_name = self._clean_interface_name(interface_raw)
+                    if interface_name:
+                        self._add_interface(interface_name, 'provided', comp_name, raw_name=interface_raw)
+
+            # Check for Required (Socket)
+            if any(v in text for v in ['requires', 'consumes', 'depends on', 'needs']):
+                 match = re.search(r'(requires|consumes|depends on|needs)\s+((?:an?|the)\s+)?(.+?)(?:\.|,|$)', sent.text, re.IGNORECASE)
+                 if match:
+                    interface_raw = match.group(3)
+                    interface_name = self._clean_interface_name(interface_raw)
+                    if interface_name:
+                        self._add_interface(interface_name, 'required', comp_name, raw_name=interface_raw)
+
+    def _extract_packages(self, doc):
+        """Extract package groupings."""
+        for sent in doc.sents:
+            text = sent.text.lower()
+            # "Component A is part of Module B"
+            if 'part of' in text or 'contained in' in text:
+                comp_name = self._find_component_in_text(sent.text)
+                if comp_name:
+                    match = re.search(r'(part of|contained in|inside)\s+((?:a|an|the)\s+)?(.+?)(?:\.|,|$)', sent.text, re.IGNORECASE)
+                    if match:
+                        package_name = self._normalize_component_name(match.group(3))
+                        if package_name:
+                             # Register package
+                             if package_name not in self.packages:
+                                 self.packages[package_name] = []
+                             
+                             # If package was wrongly identified as a component, remove it
+                             # Check raw match too: match.group(3)
+                             raw_pkg = match.group(3).strip()
+                             if package_name in self.components:
+                                 del self.components[package_name]
+                             elif raw_pkg in self.components:
+                                  del self.components[raw_pkg]
+
+                             self.packages[package_name].append(comp_name)
+                             
+                             # Update component parent
+                             if comp_name in self.components:
+                                 self.components[comp_name]['parent_package'] = package_name
+
+            # "Module B contains Component A"
+            if 'contains' in text or 'includes' in text:
+                 # Try to find the Subject as Package
+                 match = re.search(r'^(.+?)\s+(contains|includes)\s+(.+?)(?:\.|,|$)', sent.text, re.IGNORECASE)
+                 if match:
+                     pkg_raw = match.group(1).strip()
+                     content_raw = match.group(3)
+                     
+                     # Simple heuristic: if Subject ends in "Module" or "Layer" or "Package"
+                     if any(k in pkg_raw.lower() for k in ['module', 'layer', 'package', 'subsystem', 'system']):
+                         pkg_name = self._normalize_component_name(pkg_raw)
+                         # contents might be list "A, B and C"
+                         if pkg_name not in self.packages:
+                                 self.packages[pkg_name] = []
+                         
+                         # If package was wrongly identified as a component, remove it
+                         if pkg_name in self.components:
+                             del self.components[pkg_name]
+                         elif pkg_raw in self.components:
+                             del self.components[pkg_raw]
+
+                         # Try to find components in the content string
+                         for known_comp in list(self.components.keys()):
+                             if known_comp.lower() in content_raw.lower():
+                                 self.packages[pkg_name].append(known_comp)
+                                 self.components[known_comp]['parent_package'] = pkg_name
+
+    def _extract_ports(self, doc):
+        """Extract explicit ports."""
+        for sent in doc.sents:
+            text = sent.text.lower()
+            if 'port' in text:
+                comp_name = self._find_component_in_text(sent.text)
+                if comp_name:
+                    # "connects via port 80"
+                    match = re.search(r'(via|on|has|at|defines)\s+port\s+(\d+)', text)
+                    if match:
+                        port_num = match.group(2)
+                        if comp_name not in self.ports:
+                            self.ports[comp_name] = []
+                        self.ports[comp_name].append(port_num)
+        
+        # Cleanup: Remove components that look like ports (e.g. "Port 8080")
+        to_remove = []
+        for name in self.components:
+             if re.match(r'^Port\s+\d+\s*$', name, re.IGNORECASE):
+                 to_remove.append(name)
+        for name in to_remove:
+            del self.components[name]
+
+    def _clean_interface_name(self, raw):
+        """Heuristic cleaning for interface names."""
+        # Remove noise
+        raw = re.sub(r'\b(api|endpoint|interface)\b', '', raw, flags=re.IGNORECASE).strip()
+        # If result is empty, use the generic term back (e.g. "GraphQL API" -> "GraphQL")
+        if not raw:
+             return "Interface"
+        
+        # Stop at parens or common conjuncts
+        raw = raw.split(' using ')[0]
+        raw = raw.split(' to ')[0]
+        
+        return self._normalize_component_name(raw)
+
+    def _add_interface(self, name, type_, comp_name, raw_name=None):
+        if not name or len(name) < 2: return
+        
+        # Register interface
+        # Register interface
+        if name not in self.interfaces:
+            self.interfaces[name] = {'name': name, 'provider': None, 'consumers': []}
+        
+        # If interface was wrongly identified as a component, remove it
+        if name in self.components:
+            del self.components[name]
+        if raw_name and raw_name in self.components:
+             del self.components[raw_name]
+        
+        if type_ == 'provided':
+            self.interfaces[name]['provider'] = comp_name
+        elif type_ == 'required':
+            self.interfaces[name]['consumers'].append(comp_name)
+
     def _extract_relationships(self, text):
         """Extract component relationships based on interaction keywords and patterns."""
+        # print(f"DEBUG: Extracting relationships from: {text}")
+        # print(f"DEBUG: Known components: {list(self.components.keys())}")
         sentences = re.split(r'[.!?]', text)
         
         # Common interaction patterns in architecture descriptions
@@ -1466,14 +1627,18 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
             (r'(\w+(?:\s+\w+){0,3})\s+(?:reads?|writes?|reads?\s+and\s+writes?)\s+(?:data\s+)?(?:to|from)\s+(\w+(?:\s+\w+){0,3})', 'uses'),
             # "X communicates with Y", "X interacts with Y"
             (r'(\w+(?:\s+\w+){0,3})\s+(?:communicates?|interacts?)\s+with\s+(?:an?\s+)?(?:external\s+)?(\w+(?:\s+\w+){0,3})', 'communicates with'),
-            # "X uses Y", "X leverages Y", "X utilizes Y"
+            # "X uses Y"
             (r'(\w+(?:\s+\w+){0,3})\s+(?:uses?|leverages?|utilizes?)\s+(?:an?\s+)?(\w+(?:\s+\w+){0,3})', 'uses'),
-            # "X is deployed in/on/inside Y", "X runs on Y"
-            (r'(\w+(?:\s+\w+){0,3})\s+(?:is\s+deployed|deployed|runs?)\s+(?:in|on|inside)\s+(\w+(?:\s+\w+){0,3})', 'deployed on'),
-            # "X provides Y", "X exposes Y"
-            (r'(\w+(?:\s+\w+){0,3})\s+(?:provides?|exposes?)\s+(\w+(?:\s+\w+){0,3})', 'provides'),
-            # "X accesses Y", "X connects to Y"
+            # "X depends on Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+depends?\s+on\s+(\w+(?:\s+\w+){0,3})', 'depends on'),
+            # "X connects to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+connects?\s+to\s+(\w+(?:\s+\w+){0,3})', 'connects to'),
+            # "X accesses Y"
             (r'(\w+(?:\s+\w+){0,3})\s+(?:accesses?|connects?\s+to)\s+(\w+(?:\s+\w+){0,3})', 'accesses'),
+            # Case 14: "X interacts with Y via Z" or "X uses Y via Z"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:interacts?|communicates?|uses?)\s+(?:with\s+)?(\w+(?:\s+\w+){0,3})\s+(?:via|through)\s+(?:a\s+|an\s+|the\s+)?(\w+(?:\s+\w+){0,3})', 'via'),
+            # "X uses Y to Z" (Case 14: "uses Zapper API to aggregate")
+            (r'(\w+(?:\s+\w+){0,3})\s+uses\s+(?:the\s+)?(\w+(?:\s+\w+){0,3})\s+to\s+(\w+)', 'uses'),
         ]
         
         for sentence in sentences:
@@ -1487,31 +1652,76 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
                 for match in matches:
                     source_text = match.group(1).strip()
                     target_text = match.group(2).strip()
+                    via_text = match.group(3).strip() if match.lastindex >= 3 else None
                     
                     # Try to match to known components
                     source_comp = self._find_best_component_match(source_text)
                     target_comp = self._find_best_component_match(target_text)
+                    
+                    # Protocol extraction
+                    protocol = None
+                    if via_text:
+                        # Check if 'via' is a protocol
+                        protocols = ['http', 'https', 'grpc', 'jdbc', 'amqp', 'tcp', 'udp', 'rest', 'graphql', 'soap', 'websocket']
+                        if any(p in via_text.lower() for p in protocols):
+                            # Extract specific protocol
+                            for p in protocols:
+                                if p in via_text.lower():
+                                    protocol = f"<<{p.upper()}>>"
+                                    break
+                        else:
+                            # 'via' might be a component (e.g. "via Gateway")
+                            # If it's a component, we might want to link to it, but for now let's just use it as label
+                            pass
+                    
                     # If either side didn't match, try to resolve by searching the sentence
                     sentence_lower = sentence.lower()
                     if not source_comp or not target_comp:
-                        for comp_name in self.components.keys():
+                        # ... (existing fallback logic, can be simplified or kept) ...
+                         for comp_name in self.components.keys():
                             if comp_name.lower() in sentence_lower:
-                                # prefer mapping to whichever side is missing
+                                # prefer mapping to whichever side is missing, ensuring strict containment
                                 if not source_comp and comp_name.lower() in source_text.lower():
                                     source_comp = comp_name
                                 if not target_comp and comp_name.lower() in target_text.lower():
                                     target_comp = comp_name
-                        # As a fallback, if subject is missing but a service-like component is present in the sentence,
-                        # choose it as the source (helps with constructions like "X accesses A and uses B")
-                        if not source_comp:
-                            for comp_name, comp_data in self.components.items():
-                                if comp_name.lower() in sentence_lower and ('service' in comp_name.lower() or (comp_data.get('stereotype') and 'backend' in str(comp_data.get('stereotype')).lower()) or 'api' in comp_name.lower()):
-                                    source_comp = comp_name
-                                    break
 
-                    # If we resolved both sides, but they are identical, skip
-                    if source_comp and target_comp and source_comp == target_comp:
-                        continue
+                    if not target_comp and rel_type in ('via', 'communicates with', 'uses') and target_text:
+                         # Heuristic: matches "Ethereum Mainnet"
+                         # Force add it if it looks valid (capitalized)
+                         if target_text[0].isupper() and len(target_text) > 3:
+                             norm_target = self._normalize_component_name(target_text)
+                             if norm_target not in self.components:
+                                 self._add_component(norm_target, self._infer_stereotype(target_text))
+                                 target_comp = norm_target
+
+                    # Fallback for SOURCE component (e.g. "The Dashboard interacts...")
+                    if not source_comp and rel_type in ('via', 'communicates with', 'uses') and source_text:
+                         if source_text[0].isupper() and len(source_text) > 3:
+                             norm_source = self._normalize_component_name(source_text)
+                             # Avoid "The" being the name
+                             if norm_source.lower() not in ('the', 'this', 'system'):
+                                 if norm_source not in self.components:
+                                     self._add_component(norm_source, self._infer_stereotype(source_text))
+                                     source_comp = norm_source
+
+                    if source_comp and target_comp and source_comp != target_comp:
+                         description = rel_type
+                         if rel_type == 'via':
+                             description = "interacts" # simplify
+                         
+                         if protocol:
+                             description = f"{description} {protocol}"
+
+                         # Avoid duplicate relationships
+                         rel_key = (source_comp, target_comp, description)
+                         if not any(r['source'] == source_comp and r['target'] == target_comp and r.get('type') == description
+                                   for r in self.relationships):
+                             self.relationships.append({
+                                 'source': source_comp,
+                                 'target': target_comp,
+                                 'type': description
+                             })
 
                     # Avoid creating DB->DB relationships: prefer a service as subject when both matched DBs
                     try:
@@ -1721,6 +1931,7 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
         malformed_patterns = [
             r'^(for|with|from|to|in|on|at|by|using|via|through)\s',
             r'\s(for|with|from|to|in|on|at|by|using|via|through)$',
+            r'^(exposes|provides|offers)\s', # Filter out interface descriptions
             r'^\w{1,2}\s',  # Skip single/double letter prefixes like "Db Database"
         ]
         if any(re.match(pattern, name, re.IGNORECASE) for pattern in malformed_patterns):
@@ -1790,6 +2001,7 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
             malformed_patterns = [
                 r'^(for|with|from|to|in|on|at|by|using|via|through)\s',
                 r'\s(for|with|from|to|in|on|at|by|using|via|through)$',
+                r'^(exposes|provides|offers)\s', # Filter out interface descriptions
                 r'^\w{1,2}\s',  # Skip single/double letter prefixes like "Db Database"
             ]
             if any(re.match(pattern, comp_name, re.IGNORECASE) for pattern in malformed_patterns):
@@ -1845,7 +2057,9 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
                 
             all_components[comp_name] = {
                 'name': comp_name,
-                'stereotype': comp_data['stereotype']
+                'stereotype': comp_data['stereotype'],
+                'parent_package': comp_data.get('parent_package'),
+                'ports': self.ports.get(comp_name, [])
             }
         
         # Add external systems (with deduplication)
@@ -1907,6 +2121,14 @@ class ComponentDiagramExtractor(BaseDiagramExtractor):
             self.model_elements.append({
                 'type': 'ComponentRelationship',
                 'data': rel,
+                'source_id': None
+            })
+
+        # Add Interfaces
+        for iface_data in self.interfaces.values():
+            self.model_elements.append({
+                'type': 'Interface',
+                'data': iface_data,
                 'source_id': None
             })
 
@@ -2104,6 +2326,10 @@ class DeploymentDiagramExtractor(BaseDiagramExtractor):
                     if re.match(r'^(for|with|using|from|and|or|the|via|through|in|on)\s', device_name, re.IGNORECASE):
                         continue
                     
+                    # Check if this "device" is actually a software artifact we already found (e.g. "Client UI")
+                    if any(art_name.lower() == device_name.lower() for art_name in self.artifacts.keys()):
+                        continue
+
                     # Simply add - normalization already handled "Desktop Browser" → "Web Browser"
                     # Set automatically deduplicates
                     self.devices.add(device_name)

@@ -406,44 +406,90 @@ class DiagramGenerator:
             return
         
         puml_code = ["@startuml"]
+        # Skinparam for better visuals
+        puml_code.append("skinparam componentStyle uml2")
         
-        # Separate components by stereotype
-        regular_components = []
-        external_components = []
+        components = []
         relationships = []
+        interfaces = []
         
         for el in elements:
             if el['type'] == 'Component':
-                data = el['data']
-                if data.get('stereotype') == '<<external>>':
-                    external_components.append(data)
-                else:
-                    regular_components.append(data)
+                components.append(el['data'])
             elif el['type'] == 'ComponentRelationship':
                 relationships.append(el['data'])
+            elif el['type'] == 'Interface':
+                interfaces.append(el['data'])
         
-        # Generate component definitions
-        for comp in regular_components:
+        # Group components by package
+        packages = {} # {pkg_name: [comps]}
+        root_components = []
+        
+        for comp in components:
+            pkg = comp.get('parent_package')
+            if pkg:
+                if pkg not in packages:
+                    packages[pkg] = []
+                packages[pkg].append(comp)
+            else:
+                root_components.append(comp)
+                
+        # Helper to render component
+        def render_component(comp):
             name = comp['name']
             safe_id = self._make_safe_id(name)
             stereotype = comp.get('stereotype', '')
+            ports = comp.get('ports', [])
             
+            line = ""
             if stereotype and stereotype != 'None':
-                # Check if it's a database
+                if not stereotype.startswith('<<') and not stereotype.endswith('>>'):
+                    stereotype = f"<<{stereotype}>>"
+                
                 if 'database' in stereotype.lower():
-                    puml_code.append(f'database "{name}" as {safe_id}')
+                    line = f'database "{name}" as {safe_id}'
                 else:
-                    puml_code.append(f'component "{name}" {stereotype} as {safe_id}')
+                    line = f'component "{name}" {stereotype} as {safe_id}'
             else:
-                puml_code.append(f'component "{name}" as {safe_id}')
-        
-        # Generate external system definitions
-        for comp in external_components:
-            name = comp['name']
-            safe_id = self._make_safe_id(name)
-            puml_code.append(f'component "{name}" <<external>> as {safe_id}')
-        
-        # Generate relationships
+                line = f'component "{name}" as {safe_id}'
+                
+            if ports:
+                line += " {"
+                for p in ports:
+                    line += f'\n  port "{p}"'
+                line += "\n}"
+            
+            return line
+
+        # 1. Render Packages
+        for pkg_name, pkg_comps in packages.items():
+            puml_code.append(f'package "{pkg_name}" {{')
+            for comp in pkg_comps:
+                puml_code.append("  " + render_component(comp).replace("\n", "\n  "))
+            puml_code.append("}")
+            
+        # 2. Render Root Components
+        for comp in root_components:
+            puml_code.append(render_component(comp))
+            
+        # 3. Render Interfaces
+        for iface in interfaces:
+            name = iface['name']
+            safe_id = self._make_safe_id("iface_" + name)
+            puml_code.append(f'interface "{name}" as {safe_id}')
+            
+            # Link provider (Lollipop)
+            provider = iface.get('provider')
+            if provider:
+                prov_id = self._make_safe_id(provider)
+                puml_code.append(f'{prov_id} -- {safe_id}')
+                
+            # Link consumers (Socket/Usage)
+            for consumer in iface.get('consumers', []):
+                cons_id = self._make_safe_id(consumer)
+                puml_code.append(f'{cons_id} ..> {safe_id} : use')
+
+        # 4. Render Relationships
         for rel in relationships:
             source = rel['source']
             target = rel['target']
@@ -452,8 +498,9 @@ class DiagramGenerator:
             source_id = self._make_safe_id(source)
             target_id = self._make_safe_id(target)
             
+            # Use arrow based on type? Standard --> is fine usually.
             puml_code.append(f'{source_id} --> {target_id} : {rel_type}')
-        
+            
         puml_code.append("@enduml")
         
         # Write PUML file
