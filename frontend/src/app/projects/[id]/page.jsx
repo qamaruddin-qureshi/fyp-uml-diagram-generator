@@ -13,13 +13,15 @@ const DIAGRAM_TYPES = [
   { value: 'use_case', label: '🎯 Use Case Diagram' },
   { value: 'sequence', label: '📈 Sequence Diagram' },
   { value: 'activity', label: '⚙️ Activity Diagram' },
+  { value: 'component', label: '🧩 Component Diagram' },
+  { value: 'deployment', label: '🚀 Deployment Diagram' },
 ]
 
 export default function ProjectPage() {
   const router = useRouter()
   const params = useParams()
   const { currentProject, setCurrentProject } = useProjectStore()
-  
+
   const [project, setProject] = useState(null)
   const [stories, setStories] = useState('')
   const [diagramType, setDiagramType] = useState('class')
@@ -40,10 +42,10 @@ export default function ProjectPage() {
         setProject(data)
         setCurrentProject(data)
         setStories(data.stories_text || '')
-        
+
         // Get backend URL
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-        
+
         // Restore diagram type from localStorage
         const savedDiagramType = localStorage.getItem(`diagram_type_${params.id}`)
         if (savedDiagramType) {
@@ -80,7 +82,7 @@ export default function ProjectPage() {
     const newType = e.target.value
     setDiagramType(newType)
     localStorage.setItem(`diagram_type_${params.id}`, newType)
-    
+
     // Update diagram URL
     if (project?.ProjectID) {
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
@@ -92,29 +94,42 @@ export default function ProjectPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!stories.trim()) {
+    // Check if architectural diagram requires narration
+    const isArchitecturalDiagram = diagramType === 'component' || diagramType === 'deployment'
+
+    if (isArchitecturalDiagram && !stories.trim()) {
+      toast.error(`Please enter architecture context for ${diagramType} diagram`)
+      return
+    }
+
+    if (!isArchitecturalDiagram && !stories.trim()) {
       toast.error('Please enter at least one user story')
       return
     }
 
     setIsUpdating(true)
     try {
-      // FIX 1: Changed 'userStories' to 'user_stories' (Backend expects snake_case)
-      // FIX 2: Changed 'diagramType' to 'diagram_type' (Backend expects snake_case)
+      // For architectural diagrams, send stories as user_narration
       const response = await projectAPI.update(params.id, {
-        user_stories: stories,
-        diagram_type: diagramType, 
+        user_stories: isArchitecturalDiagram ? '' : stories,
+        diagram_type: diagramType,
+        user_narration: isArchitecturalDiagram ? stories : ''
       })
 
       if (response.success) {
         toast.success('Diagram updated successfully!')
-        
+
         // Update diagram URL with new timestamp to force refresh
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
         const timestamp = new Date().getTime()
         setDiagramUrl(`${backendUrl}/static/${diagramType}_${params.id}.png?t=${timestamp}`)
       } else {
-        toast.error(response.message || 'Failed to update project')
+        // Handle architecture context missing error
+        if (response.error_code === 'ARCH_CONTEXT_MISSING') {
+          toast.error(response.message + '\n\n' + response.suggestion, { duration: 6000 })
+        } else {
+          toast.error(response.message || 'Failed to update project')
+        }
       }
     } catch (error) {
       toast.error(error.message || 'Failed to update project')
@@ -132,10 +147,10 @@ export default function ProjectPage() {
       }
 
       const loadingToast = toast.loading('Generating PDF...')
-      
+
       // Get the backend URL from the API client config
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-      
+
       // Call the backend API to download PDF with credentials
       const response = await fetch(`${backendUrl}/project/${params.id}/download/${diagramType}`, {
         method: 'GET',
@@ -144,7 +159,7 @@ export default function ProjectPage() {
           'Content-Type': 'application/json'
         }
       })
-      
+
       if (!response.ok) {
         toast.dismiss(loadingToast)
         try {
@@ -234,15 +249,28 @@ export default function ProjectPage() {
                 {/* Stories Input */}
                 <div>
                   <label className="block text-sm font-bold text-black mb-2">
-                    Enter your user stories (one per line)
+                    {diagramType === 'component' || diagramType === 'deployment'
+                      ? `Enter Architecture Context for ${diagramType === 'component' ? 'Component' : 'Deployment'} Diagram`
+                      : 'Enter your user stories (one per line)'}
                   </label>
                   <textarea
                     value={stories}
                     onChange={(e) => setStories(e.target.value)}
-                    placeholder="As a user, I want to...&#10;As a customer, I want to...&#10;As an admin, I want to..."
+                    placeholder={
+                      diagramType === 'component'
+                        ? "Describe your system components:\nThe system consists of a React Frontend, Flask Backend API, and PostgreSQL Database. The Frontend communicates with the Backend API via REST. The Backend connects to the Database for data storage. We also integrate with Stripe payment gateway as an external service."
+                        : diagramType === 'deployment'
+                          ? "Describe your deployment architecture:\nThe Frontend is deployed in a Docker container. The Backend API runs on a Web Server. The PostgreSQL database runs on a Database Server. Users access the system through a Web Browser."
+                          : "As a user, I want to...&#10;As a customer, I want to...&#10;As an admin, I want to..."
+                    }
                     rows={8}
                     className="w-full px-4 py-2 bg-white border-2 border-border-color rounded-lg text-black placeholder-muted-text focus:outline-none focus:ring-2 focus:ring-accent resize-none font-semibold text-sm"
                   />
+                  {(diagramType === 'component' || diagramType === 'deployment') && (
+                    <small className="block text-muted-text mt-2 font-bold text-xs">
+                      💡 Tip: Describe components, technologies, and how they interact. Be specific about deployment environments.
+                    </small>
+                  )}
                 </div>
 
                 {/* Diagram Type Selector */}
