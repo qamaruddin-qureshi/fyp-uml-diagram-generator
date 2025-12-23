@@ -1,0 +1,141 @@
+{
+  "component_stereotypes": {
+    "react": "<<frontend>>",
+    "vue": "<<frontend>>",
+    "angular": "<<frontend>>",
+    "next.js": "<<frontend>>",
+    "nextjs": "<<frontend>>",
+    "frontend": "<<frontend>>",
+    "ui": "<<frontend>>",
+    "client": "<<frontend>>",
+    
+    "flask": "<<backend>>",
+    "django": "<<backend>>",
+    "express": "<<backend>>",
+    "fastapi": "<<backend>>",
+    "spring": "<<backend>>",
+    "backend": "<<backend>>",
+    "api": "<<backend>>",
+    "server": "<<backend>>",
+    
+    "postgresql": "<<database>>",
+    "postgres": "<<database>>",
+    "mysql": "<<database>>",
+    "mongodb": "<<database>>",
+    "redis": "<<database>>",
+    "database": "<<database>>",
+    "db": "<<database>>",
+    
+    "stripe": "<<external>>",
+    "paypal": "<<external>>",
+    "payment gateway": "<<external>>",
+    "oauth": "<<external>>",
+    "auth0": "<<external>>",
+    "firebase": "<<external>>",
+    "aws": "<<external>>",
+    "third-party": "<<external>>",
+    "external": "<<external>>"
+  },
+  
+  "deployment_stereotypes": {
+    "docker": "<<container>>",
+    "container": "<<container>>",
+    "kubernetes": "<<container>>",
+    "k8s": "<<container>>",
+    
+    "server": "<<server>>",
+    "web server": "<<server>>",
+    "application server": "<<server>>",
+    "app server": "<<server>>",
+    "nginx": "<<server>>",
+    "apache": "<<server>>",
+    
+    "postgresql": "<<database>>",
+    "postgres": "<<database>>",
+    "mysql": "<<database>>",
+    "mongodb": "<<database>>",
+    "database server": "<<database>>",
+    "db server": "<<database>>",
+    
+    "browser": "<<browser>>",
+    "web browser": "<<browser>>",
+    "client browser": "<<browser>>",
+    "user browser": "<<browser>>",
+    
+    "vm": "<<virtual machine>>",
+    "virtual machine": "<<virtual machine>>",
+    "cloud instance": "<<virtual machine>>",
+    "ec2": "<<virtual machine>>"
+  },
+  
+  "relationship_keywords": {
+    "deployment": [
+      "deployed on",
+      "deployed to",
+      "runs on",
+      "hosted on",
+      "executed in",
+      "running on",
+      "hosted in"
+    ],
+    "composition": [
+      "consists of",
+      "composed of",
+      "contains",
+      "includes",
+      "has"
+    ],
+    "interaction": [
+      "communicates with",
+      "interacts with",
+      "calls",
+      "depends on",
+      "uses",
+      "connects to",
+      "sends to",
+      "receives from"
+    ],
+    "interface": [
+      "exposes",
+      "provides",
+      "offers",
+      "implements"
+    ]
+  },
+  
+  "component_keywords": [
+    "component",
+    "service",
+    "module",
+    "system",
+    "application",
+    "app",
+    "frontend",
+    "backend",
+    "api",
+    "interface",
+    "gateway",
+    "layer"
+  ],
+  
+  "node_keywords": [
+    "server",
+    "container",
+    "node",
+    "machine",
+    "instance",
+    "environment",
+    "platform",
+    "host"
+  ],
+  
+  "device_keywords": [
+    "browser",
+    "mobile",
+    "device",
+    "client",
+    "desktop",
+    "tablet",
+    "phone"
+  ]
+}

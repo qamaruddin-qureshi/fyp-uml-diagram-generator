@@ -16,7 +16,7 @@ class DiagramGenerator:
         Generate a diagram based on type. Dispatches to the correct method.
         Args:
             project_id: Project identifier
-            diagram_type: 'class', 'use_case', 'sequence', or 'activity'
+            diagram_type: 'class', 'use_case', 'sequence', 'activity', 'component', or 'deployment'
             elements: Extracted model elements
             static_dir: Directory for output images
             puml_dir: Directory for output .puml files
@@ -29,6 +29,10 @@ class DiagramGenerator:
             self.generate_sequence_diagram(project_id, elements, static_dir, puml_dir)
         elif diagram_type == "activity":
             self.generate_activity_diagram(project_id, elements, static_dir, puml_dir)
+        elif diagram_type == "component":
+            self.generate_component_diagram(project_id, elements, static_dir, puml_dir)
+        elif diagram_type == "deployment":
+            self.generate_deployment_diagram(project_id, elements, static_dir, puml_dir)
         else:
             logger.warning(f"Unknown diagram type: {diagram_type}. Defaulting to class.")
             self.generate_class_diagram(project_id, elements, static_dir, puml_dir)
@@ -380,4 +384,287 @@ class DiagramGenerator:
             logger.error(f"PlantUML error: {e}")
             self._create_placeholder(os.path.join(static_dir, f"class_{project_id}.png"), "PlantUML Render Error")
 
+
+    def generate_component_diagram(self, project_id, elements, static_dir="static", puml_dir="generated_puml"):
+        """
+        Generate component diagram from extracted elements.
+        
+        Args:
+            project_id: Project identifier
+            elements: List of extracted component elements
+            static_dir: Directory for output PNG
+            puml_dir: Directory for output PUML file
+        """
+        logger.info("Starting component diagram generation...")
+        
+        if not elements:
+            logger.warning("No elements provided for component diagram")
+            self._create_placeholder(
+                os.path.join(static_dir, f"component_{project_id}.png"), 
+                "No architectural components extracted."
+            )
+            return
+        
+        puml_code = ["@startuml"]
+        
+        # Separate components by stereotype
+        regular_components = []
+        external_components = []
+        relationships = []
+        
+        for el in elements:
+            if el['type'] == 'Component':
+                data = el['data']
+                if data.get('stereotype') == '<<external>>':
+                    external_components.append(data)
+                else:
+                    regular_components.append(data)
+            elif el['type'] == 'ComponentRelationship':
+                relationships.append(el['data'])
+        
+        # Generate component definitions
+        for comp in regular_components:
+            name = comp['name']
+            safe_id = self._make_safe_id(name)
+            stereotype = comp.get('stereotype', '')
+            
+            if stereotype and stereotype != 'None':
+                # Check if it's a database
+                if 'database' in stereotype.lower():
+                    puml_code.append(f'database "{name}" as {safe_id}')
+                else:
+                    puml_code.append(f'component "{name}" {stereotype} as {safe_id}')
+            else:
+                puml_code.append(f'component "{name}" as {safe_id}')
+        
+        # Generate external system definitions
+        for comp in external_components:
+            name = comp['name']
+            safe_id = self._make_safe_id(name)
+            puml_code.append(f'component "{name}" <<external>> as {safe_id}')
+        
+        # Generate relationships
+        for rel in relationships:
+            source = rel['source']
+            target = rel['target']
+            rel_type = rel.get('type', 'uses')
+            
+            source_id = self._make_safe_id(source)
+            target_id = self._make_safe_id(target)
+            
+            puml_code.append(f'{source_id} --> {target_id} : {rel_type}')
+        
+        puml_code.append("@enduml")
+        
+        # Write PUML file
+        final_puml_code = "\n".join(puml_code)
+        puml_filename = os.path.join(puml_dir, f"component_{project_id}.puml")
+        
+        try:
+            with open(puml_filename, 'w') as f:
+                f.write(final_puml_code)
+            logger.info(f"Component PUML file created: {puml_filename}")
+        except Exception as e:
+            logger.error(f"Failed to write PUML file: {e}")
+            return
+        
+        # Execute PlantUML
+        try:
+            plantuml_jar = os.path.abspath("plantuml.jar")
+            result = subprocess.run(
+                ["java", "-jar", plantuml_jar, puml_filename, "-tpng", "-o", os.path.abspath(static_dir)],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            logger.info(f"Successfully created component_{project_id}.png")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"PlantUML execution error: {e.stderr}")
+            self._create_placeholder(
+                os.path.join(static_dir, f"component_{project_id}.png"), 
+                "PlantUML Render Error"
+            )
+        except Exception as e:
+            logger.error(f"PlantUML error: {e}")
+            self._create_placeholder(
+                os.path.join(static_dir, f"component_{project_id}.png"), 
+                "PlantUML Render Error"
+            )
+
+
+    def generate_deployment_diagram(self, project_id, elements, static_dir="static", puml_dir="generated_puml"):
+        """
+        Generate deployment diagram from extracted elements.
+        
+        Args:
+            project_id: Project identifier
+            elements: List of extracted deployment elements
+            static_dir: Directory for output PNG
+            puml_dir: Directory for output PUML file
+        """
+        logger.info("Starting deployment diagram generation...")
+        
+        if not elements:
+            logger.warning("No elements provided for deployment diagram")
+            self._create_placeholder(
+                os.path.join(static_dir, f"deployment_{project_id}.png"),
+                "No deployment architecture extracted."
+            )
+            return
+        
+        puml_code = ["@startuml"]
+        
+        # Separate elements by type
+        nodes = []
+        devices = []
+        artifacts = []
+        relationships = []
+        
+        # Use sets to prevent duplicates
+        seen_names = set()
+        
+        for el in elements:
+            # Handle deployment relationships
+            if el['type'] == 'DeploymentRelationship':
+                relationships.append(el['data'])
+                continue
+            
+            name = el['data']['name']
+            
+            # Skip if we've already seen this exact name
+            if name in seen_names:
+                continue
+            
+            seen_names.add(name)
+            
+            if el['type'] == 'Node':
+                nodes.append(el['data'])
+            elif el['type'] == 'Device':
+                devices.append(el['data'])
+            elif el['type'] == 'Artifact':
+                artifacts.append(el['data'])
+        
+        # Generate node definitions with artifacts and nested nodes
+        generated_nodes = set()  # Track which nodes have been generated
+        
+        def generate_node(node, indent=0):
+            """Recursively generate node with nesting."""
+            name = node['name']
+            
+            # Skip if already generated (child nodes)
+            if name in generated_nodes:
+                return []
+            
+            generated_nodes.add(name)
+            
+            stereotype = node.get('stereotype', '<<server>>')
+            node_artifacts = node.get('artifacts', [])
+            child_nodes = node.get('children', [])
+            
+            safe_id = self._make_safe_id(name)
+            indent_str = '  ' * indent
+            
+            lines = []
+            lines.append(f'{indent_str}node "{name}" {stereotype} {{')
+            
+            # Add artifacts inside node
+            for artifact in node_artifacts:
+                artifact_id = self._make_safe_id(artifact)
+                lines.append(f'{indent_str}  artifact "{artifact}"')
+            
+            # Add child nodes (nested nodes)
+            for child_name in child_nodes:
+                # Find the child node data
+                child_node = next((n for n in nodes if n['name'] == child_name), None)
+                if child_node:
+                    child_lines = generate_node(child_node, indent + 1)
+                    lines.extend(child_lines)
+            
+            lines.append(f'{indent_str}}}')
+            return lines
+        
+        # Generate all top-level nodes (nodes that aren't children of other nodes)
+        all_child_names = set()
+        for node in nodes:
+            all_child_names.update(node.get('children', []))
+        
+        for node in nodes:
+            # Only generate if it's not a child of another node
+            if node['name'] not in all_child_names:
+                node_lines = generate_node(node)
+                puml_code.extend(node_lines)
+        
+        # Generate device definitions using actor (devices are external actors)
+        for device in devices:
+            name = device['name']
+            stereotype = device.get('stereotype', '<<device>>')
+            safe_id = self._make_safe_id(name)
+            
+            # Use actor for devices (browsers, mobile devices are external actors)
+            puml_code.append(f'actor "{name}" {stereotype}')
+        
+        # Generate orphaned artifacts
+        for artifact in artifacts:
+            name = artifact['name']
+            puml_code.append(f'artifact "{name}"')
+        
+        # Generate deployment relationships (connections between nodes/devices)
+        for rel in relationships:
+            source = rel['source']
+            target = rel['target']
+            rel_type = rel.get('type', 'connects to')
+            
+            source_id = self._make_safe_id(source)
+            target_id = self._make_safe_id(target)
+            
+            # Use arrow notation for relationships
+            puml_code.append(f'"{source}" --> "{target}" : {rel_type}')
+        
+        puml_code.append("@enduml")
+        
+        # Write PUML file
+        final_puml_code = "\n".join(puml_code)
+        puml_filename = os.path.join(puml_dir, f"deployment_{project_id}.puml")
+        
+        try:
+            with open(puml_filename, 'w') as f:
+                f.write(final_puml_code)
+            logger.info(f"Deployment PUML file created: {puml_filename}")
+        except Exception as e:
+            logger.error(f"Failed to write PUML file: {e}")
+            return
+        
+        # Execute PlantUML
+        try:
+            plantuml_jar = os.path.abspath("plantuml.jar")
+            result = subprocess.run(
+                ["java", "-jar", plantuml_jar, puml_filename, "-tpng", "-o", os.path.abspath(static_dir)],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            logger.info(f"Successfully created deployment_{project_id}.png")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"PlantUML execution error: {e.stderr}")
+            self._create_placeholder(
+                os.path.join(static_dir, f"deployment_{project_id}.png"),
+                "PlantUML Render Error"
+            )
+        except Exception as e:
+            logger.error(f"PlantUML error: {e}")
+            self._create_placeholder(
+                os.path.join(static_dir, f"deployment_{project_id}.png"),
+                "PlantUML Render Error"
+            )
+
+
+    def _make_safe_id(self, text):
+        """Create a safe identifier for PlantUML from any text."""
+        # Remove special characters, keep only alphanumeric
+        safe = re.sub(r'[^a-zA-Z0-9]', '', text)
+        if not safe:
+            return "Unknown" + str(hash(text))
+        return safe
+
     # Similar methods for use_case, sequence, activity diagrams can be added here following the same pattern.
+

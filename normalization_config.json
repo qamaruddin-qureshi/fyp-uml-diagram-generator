@@ -1,0 +1,170 @@
+{
+  "enabled": true,
+  "strictness": "moderate",
+  "policies": {
+    "remove_articles": true,
+    "normalize_whitespace": true,
+    "apply_title_case": true,
+    "apply_patterns": true,
+    "case_sensitive_matching": false
+  },
+  "component_rules": {
+    "enabled": true,
+    "patterns": {
+      "payment_gateways": {
+        "enabled": true,
+        "stripe gateway": ["stripe", "stripe payment", "stripe payment gateway", "stripe gateway", "external stripe" ,"external stripe gateway", "external stripe payment gateway"],
+        "paypal": ["paypal", "paypal payment", "paypal gateway", "external paypal"],
+        "square": ["square", "square payment"],
+        "braintree": ["braintree", "braintree payment"]
+      },
+      "databases": {
+        "enabled": true,
+        "postgresql": ["postgresql", "postgres", "postgres db", "postgres database", "postgresql database", "postgresql db"],
+        "mysql": ["mysql", "mysql database", "mysql db"],
+        "mongodb": ["mongodb", "mongo", "mongo db", "mongodb database"],
+        "redis": ["redis", "redis cache", "redis db"],
+        "cassandra": ["cassandra", "cassandra database"],
+        "dynamodb": ["dynamodb", "dynamo db"],
+        "mariadb": ["mariadb", "maria db"]
+      },
+      "message_queues": {
+        "enabled": true,
+        "rabbitmq": ["rabbitmq", "rabbit mq", "rabbitmq queue", "message queue"],
+        "kafka": ["kafka", "apache kafka"],
+        "redis": ["redis", "redis queue"]
+      },
+      "caches": {
+        "enabled": true,
+        "redis": ["redis", "redis cache"],
+        "memcached": ["memcached", "memcache"],
+        "cache": ["cache", "in-memory cache", "key-value cache", "key-value store"]
+      },
+      "services": {
+        "enabled": true,
+        "backend_service": ["backend", "backend service", "backend services"],
+        "api_service": ["api service", "service api", "rest api", "restful api"],
+        "auth_service": ["auth service", "authentication service", "auth api"],
+        "payment_service": ["payment service", "payment api"],
+        "order_service": ["order service", "order api"],
+        "user_service": ["user service", "user api"],
+        "messaging_service": ["messaging service", "messaging api"],
+        "notification_service": ["notification service", "notification api"]
+      },
+      "frontends": {
+        "enabled": true,
+        "frontend": ["frontend", "web frontend", "frontend application"],
+        "ecommerce_frontend": ["ecommerce frontend", "e-commerce frontend", "ecommerce ui"],
+        "mobile_app": ["mobile app", "mobile application", "mobile frontend"],
+        "spa": ["spa", "single page application"]
+      }
+    }
+  },
+  "node_rules": {
+    "enabled": true,
+    "patterns": {
+      "servers": {
+        "enabled": true,
+        "linux_server": ["linux server", "linux servers"],
+        "ubuntu_server": ["ubuntu server", "ubuntu servers"],
+        "debian_server": ["debian server", "debian servers"],
+        "centos_server": ["centos server", "centos servers"],
+        "server": ["server", "server instance", "servers"]
+      },
+      "containers": {
+        "enabled": true,
+        "docker_container": ["docker container", "docker containers", "in docker container", "in docker containers"],
+        "container": ["container", "containers", "container runtime"],
+        "kubernetes": ["kubernetes", "k8s", "kubernetes cluster", "kubernetes pod", "k8s cluster"],
+        "pod": ["pod", "pods", "kubernetes pod"]
+      },
+      "cloud": {
+        "enabled": true,
+        "cloud_vm": ["cloud vm", "cloud vms", "cloud instance"],
+        "ec2_instance": ["ec2 instance", "ec2 instances"],
+        "virtual_machine": ["virtual machine", "virtual machines", "vm", "vms"],
+        "dedicated_host": ["dedicated host", "dedicated hosts", "dedicated server"]
+      }
+    }
+  },
+  "device_rules": {
+    "enabled": true,
+    "patterns": {
+      "browsers": {
+        "enabled": true,
+        "web_browser": ["web browser", "web browsers", "via web browser", "through web browser", "browser", "browsers"],
+        "mobile_browser": ["mobile browser", "mobile browsers"],
+        "chrome": ["chrome", "google chrome"],
+        "firefox": ["firefox", "mozilla firefox"],
+        "safari": ["safari"]
+      },
+      "devices": {
+        "enabled": true,
+        "mobile_device": ["mobile device", "mobile devices", "and mobile device", "and mobile devices"],
+        "smartphone": ["smartphone", "smartphones", "smart phone"],
+        "tablet": ["tablet", "tablets"],
+        "desktop_client": ["desktop client", "desktop clients", "desktop computer"],
+        "iot_device": ["iot device", "iot devices", "iot sensor"],
+        "sensor": ["sensor", "sensors"]
+      }
+    }
+  },
+  "environment_rules": {
+    "enabled": true,
+    "patterns": {
+      "docker": ["docker", "docker container"],
+      "kubernetes": ["kubernetes", "k8s"],
+      "cloud": ["cloud", "cloud environment"],
+      "aws": ["aws", "amazon web services"],
+      "azure": ["azure", "microsoft azure"],
+      "gcp": ["gcp", "google cloud", "google cloud platform"],
+      "serverless": ["serverless", "lambda"]
+    }
+  },
+  "interface_rules": {
+    "enabled": true,
+    "patterns": {
+      "rest_api": ["rest api", "rest endpoint", "rest endpoints", "restful api"],
+      "graphql_api": ["graphql api", "graphql endpoint", "graphql"],
+      "grpc": ["grpc", "grpc service"],
+      "http_api": ["http api", "http endpoint", "http endpoints"],
+      "websocket": ["websocket", "websockets", "websocket connection"]
+    }
+  },
+  "external_system_rules": {
+    "enabled": true,
+    "patterns": {
+      "stripe": ["stripe", "external stripe"],
+      "paypal": ["paypal", "external paypal"],
+      "twilio": ["twilio", "twilio service"],
+      "sendgrid": ["sendgrid", "sendgrid service"],
+      "aws_s3": ["aws s3", "s3", "s3 bucket"],
+      "aws_lambda": ["aws lambda", "lambda function"],
+      "oauth_provider": ["oauth", "oauth provider", "oauth service"]
+    }
+  },
+  "deduplication": {
+    "enabled": true,
+    "fuzzy_matching": {
+      "enabled": false,
+      "threshold": 0.85
+    },
+    "cross_collection_deduplication": {
+      "enabled": true,
+      "rules": [
+        {
+          "description": "Don't add Web Browser as both node and device - keep as device",
+          "collections": ["nodes", "devices"],
+          "patterns": ["web browser", "browser", "web browsers", "browsers"],
+          "preferred_collection": "devices"
+        },
+        {
+          "description": "Don't add Mobile as both node and device - keep as device",
+          "collections": ["nodes", "devices"],
+          "patterns": ["mobile", "mobile device", "mobile devices", "smartphone"],
+          "preferred_collection": "devices"
+        }
+      ]
+    }
+  }
+}

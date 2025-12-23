@@ -5,6 +5,14 @@ Contains all diagram extractor classes for UML model extraction from user storie
 import re
 import json
 import logging
+from scripts.normalize_components import (
+    normalize_component_name, 
+    normalize_node_name,
+    normalize_device_name,
+    normalize_environment_name,
+    normalize_interface,
+    normalize_external_system
+)
 
 logger = logging.getLogger(__name__)
 
@@ -877,6 +885,9 @@ class ClassDiagramExtractor(BaseDiagramExtractor):
         
         return self.model_elements
 
+
+
+
 class UseCaseDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
         self.model_elements = []
@@ -1084,7 +1095,6 @@ class UseCaseDiagramExtractor(BaseDiagramExtractor):
 
 
 
-
 class SequenceDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
         self.model_elements = []
@@ -1156,7 +1166,6 @@ class SequenceDiagramExtractor(BaseDiagramExtractor):
 
 
 
-
 class ActivityDiagramExtractor(BaseDiagramExtractor):
     def extract(self, stories_list):
         self.model_elements = []
@@ -1211,3 +1220,1424 @@ class ActivityDiagramExtractor(BaseDiagramExtractor):
                     })
         except Exception as e:
             logger.error(f"Activity extraction error for story {story_id}: {e}")
+
+
+
+
+class ComponentDiagramExtractor(BaseDiagramExtractor):
+    """
+    Extracts components, interfaces, and relationships for component diagrams.
+    Requires architectural narration as input.
+    """
+    def __init__(self, nlp_model, ner_model=None, tech_mappings_path="technology_mappings.json"):
+        super().__init__(nlp_model, ner_model)
+        self.components = {}  # {name: {stereotype, interfaces, dependencies}}
+        self.external_systems = set()
+        self.interfaces = set()
+        self.relationships = []
+        
+        # Load technology mappings
+        self.tech_mappings = {}
+        self.relationship_keywords = {}
+        try:
+            with open(tech_mappings_path, 'r') as f:
+                mappings = json.load(f)
+                self.tech_mappings = mappings.get('component_stereotypes', {})
+                self.relationship_keywords = mappings.get('relationship_keywords', {})
+                self.component_keywords = mappings.get('component_keywords', [])
+        except Exception as e:
+            logger.error(f"Failed to load technology mappings: {e}")
+    
+    def extract(self, narration_text):
+        """
+        Extract components from architecture narration.
+        Returns list of model elements.
+        """
+        if not narration_text or not narration_text.strip():
+            logger.warning("No architecture narration provided for component diagram")
+            return []
+        
+        self.model_elements = []
+        self.components = {}
+        self.external_systems = set()
+        self.relationships = []
+        
+        # Process text with NER model
+        doc = self._process_text(narration_text)
+        
+        # =====================================================================
+        # EXTRACTION STRATEGY:
+        # 1. NER MODEL is the PRIMARY source for entity extraction
+        # 2. Gap-filling catches entities NER missed (training data gaps)
+        # 3. Pattern-based code is ONLY for normalization and deduplication
+        # 4. Relationships use pattern matching (NER may not capture verbs well)
+        # =====================================================================
+        
+        if self.ner_model:
+            # Primary: NER extracts COMPONENT, EXTERNAL_SYSTEM, INTERFACE, TECHNOLOGY
+            self._extract_from_ner(doc)
+            
+            # Gap-filling: Catch entities that NER missed due to training gaps
+            # This is minimal and targeted, not a full pattern extraction
+            self._fill_ner_gaps(narration_text, doc)
+        else:
+            # Fallback ONLY when no NER model available (shouldn't happen in production)
+            print("[WARNING] No NER model - falling back to pattern extraction")
+            self._extract_components_pattern(narration_text)
+            self._extract_external_systems_pattern(narration_text)
+        
+        # Relationships extracted via patterns (verb phrases like "sends to", "uses")
+        self._extract_relationships(narration_text)
+        
+        # Build model elements
+        self._build_component_elements()
+        
+        return self.model_elements
+    
+    def _extract_from_ner(self, doc):
+        """
+        Extract ALL entities from the NER model.
+        This is the PRIMARY extraction method - model does the heavy lifting.
+        
+        NER Labels from architecture_uml_model:
+        - COMPONENT: Services, modules, APIs (e.g., "inventory service", "payment API")
+        - EXTERNAL_SYSTEM: Third-party integrations (e.g., "Amazon S3", "Stripe")
+        - TECHNOLOGY: Databases, caches, frameworks (e.g., "MySQL", "Redis", "Docker")
+        - NODE: Infrastructure (e.g., "Linux server", "cloud instance")
+        - DEVICE: User devices (e.g., "mobile device", "desktop browser")
+        - ENVIRONMENT: Deployment environments (e.g., "Docker containers", "Kubernetes")
+        - INTERFACE: APIs, ports (e.g., "REST API", "port 8080")
+        """
+        for ent in doc.ents:
+            entity_text = ent.text.strip()
+            entity_lower = entity_text.lower()
+            label = ent.label_
+            
+            if label == "COMPONENT":
+                # Main application components/services
+                comp_name = normalize_component_name(entity_text)
+                stereotype = self._infer_stereotype(entity_lower)
+                self._add_component(comp_name, stereotype)
+            
+            elif label == "EXTERNAL_SYSTEM":
+                # Third-party services, external integrations
+                # Only add to external_systems set - they'll be added as components
+                # with <<external>> stereotype in _build_component_elements
+                sys_name = normalize_external_system(entity_text)
+                self.external_systems.add(sys_name)
+                # Don't add to components here - avoid duplicates
+            
+            elif label == "TECHNOLOGY":
+                # Databases, caches, message queues, frameworks
+                tech_name = normalize_component_name(entity_text)
+                # Infer stereotype from technology type
+                if any(db in entity_lower for db in ['sql', 'database', 'db', 'mongo', 'postgres', 'mysql', 'redis', 'cache']):
+                    stereotype = "database"
+                elif any(mq in entity_lower for mq in ['queue', 'kafka', 'rabbit', 'mq']):
+                    stereotype = "queue"
+                else:
+                    stereotype = self._infer_stereotype(entity_lower)
+                self._add_component(tech_name, stereotype)
+            
+            elif label == "INTERFACE":
+                # APIs, ports, endpoints
+                interface_name = normalize_interface(entity_text)
+                self.interfaces.add(interface_name)
+            
+            # NODE, DEVICE, ENVIRONMENT are handled by DeploymentDiagramExtractor
+            # but we can capture infrastructure components here too
+            elif label in ("NODE", "ENVIRONMENT"):
+                # Infrastructure that might also be a logical component
+                # e.g., "Docker containers" is both deployment and logical grouping
+                pass  # Let deployment extractor handle these
+    
+    def _fill_ner_gaps(self, text, doc):
+        """
+        Fill gaps in NER extraction.
+        
+        The NER model may miss some entities due to training data gaps.
+        This method catches obvious patterns that NER missed, but ONLY adds
+        entities that are clearly mentioned in the text and not already extracted.
+        
+        This is NOT a full pattern extraction - it's targeted gap-filling.
+        """
+        text_lower = text.lower()
+        
+        # Get what NER already extracted (normalized names for comparison)
+        ner_extracted = set()
+        for ent in doc.ents:
+            ner_extracted.add(ent.text.lower())
+            # Also add normalized versions
+            if ent.label_ == "COMPONENT":
+                ner_extracted.add(normalize_component_name(ent.text).lower())
+        
+        # Also add what we've already collected
+        for comp_name in self.components.keys():
+            ner_extracted.add(comp_name.lower())
+        
+        # Pattern: "[word] service" that NER missed
+        # e.g., "user interface service", "authentication service"
+        service_pattern = re.findall(r'\b(\w+(?:\s+\w+)?)\s+service\b', text_lower)
+        for match in service_pattern:
+            full_name = f"{match} service"
+            normalized = normalize_component_name(full_name)
+            
+            # Only add if not already extracted by NER
+            if full_name not in ner_extracted and normalized.lower() not in ner_extracted:
+                # Avoid generic patterns like "the service" or "a service"
+                if match.strip() not in ('the', 'a', 'an', 'this', 'that', 'each', 'every'):
+                    stereotype = self._infer_stereotype(full_name)
+                    self._add_component(normalized, stereotype)
+                    ner_extracted.add(normalized.lower())  # Prevent duplicates
+        
+        # Pattern: "[word] API" that NER missed
+        api_pattern = re.findall(r'\b(\w+(?:\s+\w+)?)\s+api\b', text_lower)
+        for match in api_pattern:
+            full_name = f"{match} api"
+            normalized = normalize_component_name(full_name)
+            
+            if full_name not in ner_extracted and normalized.lower() not in ner_extracted:
+                if match.strip() not in ('the', 'a', 'an', 'this', 'that', 'rest', 'restful'):
+                    self._add_component(normalized, "backend")
+                    ner_extracted.add(normalized.lower())
+    
+    def _extract_components_pattern(self, text):
+        """Pattern-based component extraction using keywords and technologies."""
+        text_lower = text.lower()
+        sentences = re.split(r'[.!?]', text)
+        
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            
+            # Look for component keywords
+            for keyword in self.component_keywords:
+                pattern = rf'\b(\w+\s+)?{keyword}\b'
+                matches = re.finditer(pattern, sentence_lower)
+                for match in matches:
+                    comp_text = match.group(0).strip()
+                    comp_name = self._normalize_component_name(comp_text)
+                    stereotype = self._infer_stereotype(comp_text)
+                    self._add_component(comp_name, stereotype)
+            
+            # Look for technology names
+            for tech, stereotype in self.tech_mappings.items():
+                if tech in sentence_lower:
+                    # Try to find component name near technology
+                    # Pattern: "React frontend", "Flask API", "PostgreSQL database"
+                    pattern = rf'(\w+\s+)?{tech}(\s+\w+)?'
+                    match = re.search(pattern, sentence_lower, re.IGNORECASE)
+                    if match:
+                        comp_name = self._normalize_component_name(match.group(0))
+                        self._add_component(comp_name, stereotype)
+    
+    def _extract_external_systems_pattern(self, text):
+        """
+        Pattern-based external system extraction.
+        ONLY used as fallback when NER model is not available.
+        """
+        text_lower = text.lower()
+        external_indicators = ['external', 'third-party', 'third party', 'payment gateway', 
+                               'auth provider', 'oauth', 'stripe', 'paypal', 'firebase',
+                               'aws', 'amazon', 'azure', 'google cloud', 'twilio', 's3']
+        
+        sentences = re.split(r'[.!?]', text)
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            for indicator in external_indicators:
+                if indicator in sentence_lower:
+                    # Extract the system name
+                    pattern = rf'(\w+\s+)?{indicator}(\s+\w+)?'
+                    match = re.search(pattern, sentence_lower, re.IGNORECASE)
+                    if match:
+                        sys_name = normalize_external_system(match.group(0))
+                        self.external_systems.add(sys_name)
+    
+    def _extract_relationships(self, text):
+        """Extract component relationships based on interaction keywords and patterns."""
+        sentences = re.split(r'[.!?]', text)
+        
+        # Common interaction patterns in architecture descriptions
+        relationship_patterns = [
+            # "X sends requests to Y", "X sends data to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+sends?\s+(?:requests?|data|messages?)\s+to\s+(\w+(?:\s+\w+){0,3})', 'sends to'),
+            # "X stores data in Y", "X persists data in Y", "X saves data to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:stores?|persists?|saves?)\s+(?:data\s+)?(?:in|to)\s+(?:an?\s+)?(\w+(?:\s+\w+){0,3})', 'stores in'),
+            # "X reads from Y", "X writes to Y", "X reads and writes data to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:reads?|writes?|reads?\s+and\s+writes?)\s+(?:data\s+)?(?:to|from)\s+(\w+(?:\s+\w+){0,3})', 'uses'),
+            # "X communicates with Y", "X interacts with Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:communicates?|interacts?)\s+with\s+(?:an?\s+)?(?:external\s+)?(\w+(?:\s+\w+){0,3})', 'communicates with'),
+            # "X uses Y", "X leverages Y", "X utilizes Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:uses?|leverages?|utilizes?)\s+(?:an?\s+)?(\w+(?:\s+\w+){0,3})', 'uses'),
+            # "X is deployed in/on/inside Y", "X runs on Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:is\s+deployed|deployed|runs?)\s+(?:in|on|inside)\s+(\w+(?:\s+\w+){0,3})', 'deployed on'),
+            # "X provides Y", "X exposes Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:provides?|exposes?)\s+(\w+(?:\s+\w+){0,3})', 'provides'),
+            # "X accesses Y", "X connects to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:accesses?|connects?\s+to)\s+(\w+(?:\s+\w+){0,3})', 'accesses'),
+        ]
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            
+            # Try each pattern
+            for pattern, rel_type in relationship_patterns:
+                matches = re.finditer(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    source_text = match.group(1).strip()
+                    target_text = match.group(2).strip()
+                    
+                    # Try to match to known components
+                    source_comp = self._find_best_component_match(source_text)
+                    target_comp = self._find_best_component_match(target_text)
+                    # If either side didn't match, try to resolve by searching the sentence
+                    sentence_lower = sentence.lower()
+                    if not source_comp or not target_comp:
+                        for comp_name in self.components.keys():
+                            if comp_name.lower() in sentence_lower:
+                                # prefer mapping to whichever side is missing
+                                if not source_comp and comp_name.lower() in source_text.lower():
+                                    source_comp = comp_name
+                                if not target_comp and comp_name.lower() in target_text.lower():
+                                    target_comp = comp_name
+                        # As a fallback, if subject is missing but a service-like component is present in the sentence,
+                        # choose it as the source (helps with constructions like "X accesses A and uses B")
+                        if not source_comp:
+                            for comp_name, comp_data in self.components.items():
+                                if comp_name.lower() in sentence_lower and ('service' in comp_name.lower() or (comp_data.get('stereotype') and 'backend' in str(comp_data.get('stereotype')).lower()) or 'api' in comp_name.lower()):
+                                    source_comp = comp_name
+                                    break
+
+                    # If we resolved both sides, but they are identical, skip
+                    if source_comp and target_comp and source_comp == target_comp:
+                        continue
+
+                    # Avoid creating DB->DB relationships: prefer a service as subject when both matched DBs
+                    try:
+                        source_st = self.components.get(source_comp, {}).get('stereotype') if source_comp else None
+                        target_st = self.components.get(target_comp, {}).get('stereotype') if target_comp else None
+                    except Exception:
+                        source_st = target_st = None
+
+                    # Helper: is database-like
+                    def _is_db(stype, name):
+                        if not stype and not name:
+                            return False
+                        if stype and 'database' in stype:
+                            return True
+                        if name and ('postgres' in name.lower() or 'mysql' in name.lower() or 'redis' in name.lower() or 'mongodb' in name.lower() or 'database' in name.lower()):
+                            return True
+                        return False
+
+                    if source_comp and target_comp:
+                        if _is_db(source_st, source_comp) and _is_db(target_st, target_comp):
+                            # Try to find a service component in the sentence to be the actual subject
+                            found_service = None
+                            for comp_name, comp_data in self.components.items():
+                                if comp_name.lower() in sentence_lower and comp_name not in (source_comp, target_comp):
+                                    if 'service' in comp_name.lower() or (comp_data.get('stereotype') and 'backend' in str(comp_data.get('stereotype')).lower()) or 'api' in comp_name.lower():
+                                        found_service = comp_name
+                                        break
+                            if found_service:
+                                # Re-attach relation: service -> the database (target or source depending on sentence order)
+                                # Prefer targeting the DB that appears after the verb (target_comp)
+                                source_comp = found_service
+                            else:
+                                # No service found; skip this ambiguous DB-DB relation
+                                continue
+
+                    # Finally, add relationship if both sides are known and distinct
+                    if source_comp and target_comp and source_comp != target_comp:
+                        # Avoid duplicate relationships
+                        if not any(r['source'] == source_comp and r['target'] == target_comp 
+                                  for r in self.relationships):
+                            self.relationships.append({
+                                'source': source_comp,
+                                'target': target_comp,
+                                'type': rel_type
+                            })
+                            logger.debug(f"Extracted relationship: {source_comp} -> {target_comp} ({rel_type})")
+    
+    def _find_best_component_match(self, text):
+        """Find the best matching component name from extracted components."""
+        text_lower = text.lower().strip()
+        
+        # Remove common words
+        text_lower = re.sub(r'\b(the|a|an|this|that)\b', '', text_lower).strip()
+        
+        # Direct match with known components
+        for comp_name in self.components.keys():
+            if comp_name.lower() == text_lower or comp_name.lower() in text_lower:
+                return comp_name
+        
+        # Match with external systems
+        for ext_sys in self.external_systems:
+            if ext_sys.lower() == text_lower or ext_sys.lower() in text_lower:
+                return ext_sys
+        
+        # Try normalization
+        normalized = self._normalize_component_name(text)
+        if normalized in self.components:
+            return normalized
+        if normalized in self.external_systems:
+            return normalized
+        
+        return None
+    
+    def _extract_relationships_old(self, text):
+        """Old relationship extraction method (kept as fallback)."""
+        sentences = re.split(r'[.!?]', text)
+        
+        interaction_keywords = self.relationship_keywords.get('interaction', [])
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+                
+            sentence_lower = sentence.lower()
+            
+            # Look for interaction patterns
+            for keyword in interaction_keywords:
+                if keyword in sentence_lower:
+                    # Split on the keyword
+                    parts = sentence.split(keyword, 1)  # Split only on first occurrence
+                    if len(parts) >= 2:
+                        # Extract component names from parts
+                        source_text = parts[0].strip()
+                        target_text = parts[1].strip()
+                        
+                        source_comp = self._extract_component_from_sentence(source_text)
+                        target_comp = self._extract_component_from_sentence(target_text)
+                        
+                        if source_comp and target_comp:
+                            # Normalize names
+                            source_comp = self._normalize_component_name(source_comp)
+                            target_comp = self._normalize_component_name(target_comp)
+                            
+                            # Determine relationship type
+                            rel_type = keyword
+                            
+                            # Avoid duplicate relationships
+                            rel_key = (source_comp, target_comp, rel_type)
+                            if not any(r['source'] == source_comp and r['target'] == target_comp 
+                                      for r in self.relationships):
+                                self.relationships.append({
+                                    'source': source_comp,
+                                    'target': target_comp,
+                                    'type': rel_type
+                                })
+                                logger.debug(f"Extracted relationship: {source_comp} -> {target_comp} ({rel_type})")
+    
+    def _find_component_in_text(self, text):
+        """Find a known component name in a text fragment."""
+        text = text.strip().lower()
+        for comp_name in self.components.keys():
+            if comp_name.lower() in text:
+                return comp_name
+        for ext_sys in self.external_systems:
+            if ext_sys.lower() in text:
+                return ext_sys
+        return None
+    
+    def _extract_component_from_sentence(self, text):
+        """
+        Extract component name from a sentence fragment.
+        Looks for known component keywords and technology terms.
+        """
+        text = text.strip()
+        if not text:
+            return None
+        
+        # Remove common prefixes
+        text = re.sub(r'^(the|a|an)\s+', '', text, flags=re.IGNORECASE)
+        
+        # First check if we already know this component
+        for comp_name in list(self.components.keys()) + list(self.external_systems):
+            if comp_name.lower() in text.lower():
+                return comp_name
+        
+        # Look for component keywords + qualifiers
+        # Pattern: "frontend", "payment service", "backend API", etc.
+        component_patterns = [
+            r'(\w+\s+)?(?:service|api|application|app|frontend|backend|system|database|cache|server|gateway)',
+            r'(?:service|api|application|app|frontend|backend|system|database|cache|server|gateway)(?:\s+\w+)?'
+        ]
+        
+        for pattern in component_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(0).strip()
+        
+        # Look for technology names
+        for tech in self.tech_mappings.keys():
+            if tech in text.lower():
+                # Return text around the technology
+                pattern = rf'(\w+\s+)?{tech}(\s+\w+)?'
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    return match.group(0).strip()
+        
+        # Last resort: return first noun phrase
+        words = text.split()
+        if len(words) > 0:
+            # Take first 1-3 words
+            return ' '.join(words[:min(3, len(words))])
+        
+        return None
+    
+    def _normalize_component_name(self, name):
+        """Normalize component names to avoid duplicates using the centralized normalization."""
+        return normalize_component_name(name)
+    
+    def _infer_stereotype(self, text):
+        """Infer component stereotype from text."""
+        text_lower = text.lower()
+        for tech, stereotype in self.tech_mappings.items():
+            if tech in text_lower:
+                return stereotype
+        return None
+    
+    def _add_component(self, name, stereotype=None):
+        """Add a component to the collection with deduplication."""
+        if not name:
+            return
+            
+        name = self._normalize_component_name(name)
+        
+        # Filter out noise terms
+        noise_terms = [
+            'system', 'the system', 'application', 'the application',
+            'for client', 'client communication', 'for communication',
+            'using', 'with', 'from', 'to', 'and', 'or', 'the',
+            # Generic actor words that aren't useful as components
+            'client', 'customer', 'user', 'frontend'
+        ]
+        if name.lower() in noise_terms or len(name) < 3:
+            return
+        
+        # Filter out malformed extractions
+        malformed_patterns = [
+            r'^(for|with|from|to|in|on|at|by|using|via|through)\s',
+            r'\s(for|with|from|to|in|on|at|by|using|via|through)$',
+            r'^\w{1,2}\s',  # Skip single/double letter prefixes like "Db Database"
+        ]
+        if any(re.match(pattern, name, re.IGNORECASE) for pattern in malformed_patterns):
+            return
+        
+        # Filter out deployment infrastructure terms
+        infrastructure_terms = ['server', 'container', 'virtual machine', 'vm', 'host', 'cluster']
+        if any(term in name.lower() for term in infrastructure_terms):
+            return
+        
+        # Check for near-duplicates (e.g., "Payment API" vs "Payment Service API")
+        for existing_name in list(self.components.keys()):
+            # If one name contains the other, merge them
+            if name.lower() in existing_name.lower():
+                # Use the longer, more descriptive name
+                if stereotype and not self.components[existing_name]['stereotype']:
+                    self.components[existing_name]['stereotype'] = stereotype
+                return  # Don't add duplicate
+            elif existing_name.lower() in name.lower():
+                # Current name is more descriptive, replace existing
+                if existing_name in self.components:
+                    old_data = self.components.pop(existing_name)
+                    self.components[name] = {
+                        'stereotype': stereotype or old_data['stereotype'],
+                        'interfaces': old_data['interfaces'],
+                        'dependencies': old_data['dependencies']
+                    }
+                return
+        
+        # No duplicate found, add new component
+        if name not in self.components:
+            self.components[name] = {
+                'stereotype': stereotype,
+                'interfaces': [],
+                'dependencies': []
+            }
+            logger.debug(f"Added component: {name} with stereotype {stereotype}")
+    
+    def _build_component_elements(self):
+        """Build model elements from extracted data with deduplication."""
+        # Deduplicate: merge components and external systems, keep unique normalized names
+        all_components = {}
+        
+        # Generic/abstract component names that should be skipped when specific ones exist
+        generic_component_patterns = {
+            'api service': ['payment', 'order', 'user', 'auth', 'product', 'inventory', 'shipping'],
+            'backend service': ['payment', 'order', 'user', 'auth', 'product', 'inventory', 'shipping'],
+            'frontend service': ['ecommerce', 'web', 'admin', 'mobile', 'customer'],
+            'service': ['payment', 'order', 'user', 'auth', 'product', 'inventory', 'shipping', 'email', 'notification'],
+            'gateway': ['payment', 'api', 'stripe', 'paypal'],
+            'payment gateway': ['stripe', 'paypal', 'square', 'braintree'],
+            'api gateway': ['kong', 'apigee', 'aws'],
+        }
+        
+        # Add regular components
+        for comp_name, comp_data in self.components.items():
+            # Skip generic/noise components
+            noise_terms = [
+                'system', 'the system', 'application', 'the application',
+                'for client', 'client communication', 'for communication',
+                'using', 'with', 'from', 'to', 'and', 'or', 'the'
+            ]
+            if comp_name.lower() in noise_terms or len(comp_name) < 3:
+                continue
+            
+            # Skip malformed extractions (starts with preposition or ends with incomplete phrase)
+            malformed_patterns = [
+                r'^(for|with|from|to|in|on|at|by|using|via|through)\s',
+                r'\s(for|with|from|to|in|on|at|by|using|via|through)$',
+                r'^\w{1,2}\s',  # Skip single/double letter prefixes like "Db Database"
+            ]
+            if any(re.match(pattern, comp_name, re.IGNORECASE) for pattern in malformed_patterns):
+                continue
+            
+            # Skip deployment infrastructure terms (these are nodes, not components)
+            infrastructure_terms = ['server', 'container', 'virtual machine', 'vm', 'host', 'cluster']
+            if any(term in comp_name.lower() for term in infrastructure_terms):
+                continue
+            
+            # Skip deployment nodes that aren't components
+            if comp_data['stereotype'] in ['<<server>>', '<<container>>', '<<device>>', '<<node>>']:
+                continue
+            
+            # Skip generic component names if we have more specific ones
+            is_generic = False
+            comp_lower = comp_name.lower()
+            for generic_pattern, specific_keywords in generic_component_patterns.items():
+                if comp_lower == generic_pattern or comp_lower.strip() == generic_pattern.strip():
+                    # Check if we have a more specific component with one of the keywords
+                    for other_name in list(self.components.keys()) + list(self.external_systems):
+                        other_lower = other_name.lower()
+                        if other_lower != comp_lower:
+                            for keyword in specific_keywords:
+                                if keyword in other_lower and (generic_pattern.split()[0] in other_lower or 'service' in other_lower or 'gateway' in other_lower):
+                                    is_generic = True
+                                    logger.debug(f"Skipping generic '{comp_name}' because specific '{other_name}' exists")
+                                    break
+                        if is_generic:
+                            break
+                    if is_generic:
+                        break
+            
+            if is_generic:
+                continue
+            
+            # Deduplicate similar service names (Order Service vs Order Management Service)
+            skip_duplicate = False
+            for existing_name in list(all_components.keys()):
+                # Check if this is a shorter version of an existing component
+                comp_words = set(comp_name.lower().split())
+                existing_words = set(existing_name.lower().split())
+                
+                # If one is a subset of the other, keep the longer/more specific one
+                if comp_words < existing_words:  # comp_name is subset
+                    skip_duplicate = True
+                    break
+                elif existing_words < comp_words:  # existing is subset, replace it
+                    del all_components[existing_name]
+                    
+            if skip_duplicate:
+                continue
+                
+            all_components[comp_name] = {
+                'name': comp_name,
+                'stereotype': comp_data['stereotype']
+            }
+        
+        # Add external systems (with deduplication)
+        for ext_sys in self.external_systems:
+            # Skip if we already have a more specific version
+            # e.g., skip "Stripe" if we have "Stripe Gateway"
+            skip = False
+            for existing_name in list(all_components.keys()):
+                # If existing component contains this external system name, skip
+                if ext_sys.lower() in existing_name.lower() and len(ext_sys) < len(existing_name):
+                    skip = True
+                    break
+                # If this external system contains an existing component, replace it
+                if existing_name.lower() in ext_sys.lower() and len(existing_name) < len(ext_sys):
+                    del all_components[existing_name]
+                    skip = False
+                    break
+            
+            if not skip:
+                # Check for generic terms that might be more specific elsewhere
+                generic_terms = {
+                    'payment gateway': ['stripe', 'paypal', 'square'],
+                    'auth service': ['okta', 'auth0', 'cognito'],
+                    'api gateway': ['kong', 'apigee'],
+                    'message queue': ['rabbitmq', 'kafka'],
+                }
+                
+                is_generic = False
+                for generic_term, brands in generic_terms.items():
+                    if generic_term in ext_sys.lower():
+                        # Check if we have a more specific branded version
+                        has_specific = any(
+                            any(brand in existing.lower() for brand in brands)
+                            for existing in all_components.keys()
+                        )
+                        if has_specific:
+                            is_generic = True
+                            break
+                
+                if is_generic:
+                    skip = True
+                
+                if not skip:
+                    all_components[ext_sys] = {
+                        'name': ext_sys,
+                        'stereotype': '<<external>>'
+                    }
+        
+        # Convert to model elements
+        for comp_data in all_components.values():
+            self.model_elements.append({
+                'type': 'Component',
+                'data': comp_data,
+                'source_id': None
+            })
+        
+        # Add relationships
+        for rel in self.relationships:
+            self.model_elements.append({
+                'type': 'ComponentRelationship',
+                'data': rel,
+                'source_id': None
+            })
+
+
+
+
+class DeploymentDiagramExtractor(BaseDiagramExtractor):
+    """
+    Extracts nodes, artifacts, and deployment relationships for deployment diagrams.
+    Requires architectural narration as input.
+    """
+    def __init__(self, nlp_model, ner_model=None, tech_mappings_path="technology_mappings.json"):
+        super().__init__(nlp_model, ner_model)
+        self.nodes = {}  # {name: {stereotype, artifacts, devices}}
+        self.artifacts = {}  # {name: component_mapping}
+        self.devices = set()
+        self.environments = set()  # Runtime environments (docker, k8s, etc.)
+        self.deployment_relationships = []
+        
+        # Load technology mappings
+        self.tech_mappings = {}
+        self.relationship_keywords = {}
+        try:
+            with open(tech_mappings_path, 'r') as f:
+                mappings = json.load(f)
+                self.tech_mappings = mappings.get('deployment_stereotypes', {})
+                self.relationship_keywords = mappings.get('relationship_keywords', {})
+                self.node_keywords = mappings.get('node_keywords', [])
+                self.device_keywords = mappings.get('device_keywords', [])
+        except Exception as e:
+            logger.error(f"Failed to load technology mappings: {e}")
+    
+    def extract(self, narration_text, component_artifacts=None):
+        """
+        Extract deployment architecture from narration.
+        
+        Args:
+            narration_text: The architectural description text
+            component_artifacts: Optional dict of {name: stereotype} from ComponentDiagramExtractor
+                                 These will be used as artifacts (deployed services)
+        
+        Returns list of model elements.
+        """
+        if not narration_text or not narration_text.strip():
+            logger.warning("No architecture narration provided for deployment diagram")
+            return []
+        
+        # Store original text for containment extraction
+        self._original_text = narration_text
+        
+        self.model_elements = []
+        self.nodes = {}
+        self.artifacts = {}
+        self.devices = set()
+        self.deployment_relationships = []
+        
+        # Process text with NER model
+        doc = self._process_text(narration_text)
+        
+        # =====================================================================
+        # EXTRACTION STRATEGY for Deployment:
+        # 1. Use pre-extracted components from ComponentDiagramExtractor as artifacts
+        #    (This ensures consistency between component and deployment diagrams)
+        # 2. NER MODEL extracts: NODE, DEVICE, ENVIRONMENT
+        # 3. Nodes/Devices use patterns as FALLBACK (NER may miss infrastructure)
+        # =====================================================================
+        
+        # Import components from component diagram as artifacts
+        if component_artifacts:
+            for name, data in component_artifacts.items():
+                stereotype = data.get('stereotype', '') if isinstance(data, dict) else data
+                # Skip databases - they become nodes, not artifacts
+                if stereotype and 'database' in str(stereotype).lower():
+                    continue
+                # Skip external systems - they're outside our deployment
+                if stereotype and 'external' in str(stereotype).lower():
+                    continue
+                self.artifacts[name] = None  # Will be assigned to node later
+        
+        if self.ner_model:
+            self._extract_from_ner(doc)
+        
+        # Nodes and devices can use patterns (infrastructure is less ambiguous)
+        self._extract_nodes_pattern(narration_text)
+        self._extract_devices_pattern(narration_text)
+        
+        # DO NOT extract artifacts via patterns - they create noise
+        # Artifacts should come from NER's COMPONENT entities only
+        # self._extract_artifacts_pattern(narration_text)  # DISABLED - causes noise
+        
+        self._extract_deployment_relationships(narration_text)
+        
+        # Build model elements
+        self._build_deployment_elements()
+        
+        return self.model_elements
+    
+    def _extract_from_ner(self, doc):
+        """Extract deployment entities from NER."""
+        for ent in doc.ents:
+            if ent.label_ == "NODE":
+                node_name = normalize_node_name(ent.text)
+                stereotype = self._infer_node_stereotype(ent.text.lower())
+                self._add_node(node_name, stereotype)
+            
+            elif ent.label_ == "DEVICE":
+                device_name = normalize_device_name(ent.text)
+                self.devices.add(device_name)
+            
+            elif ent.label_ == "ARTIFACT":
+                artifact_name = normalize_component_name(ent.text)
+                # Skip generic/noise artifacts
+                if self._is_valid_artifact(artifact_name):
+                    self.artifacts[artifact_name] = None
+            
+            elif ent.label_ == "COMPONENT":
+                # Components become deployable artifacts in deployment diagrams
+                # (services, APIs, frontends that run inside nodes)
+                comp_name = normalize_component_name(ent.text)
+                # Skip databases - they become nodes, not artifacts
+                entity_lower = ent.text.lower()
+                if not any(db in entity_lower for db in ['database', 'db', 'sql', 'mongo', 'postgres', 'mysql', 'redis', 'cache']):
+                    # Skip generic/noise artifacts
+                    if self._is_valid_artifact(comp_name):
+                        self.artifacts[comp_name] = None
+            
+            elif ent.label_ == "ENVIRONMENT" or ent.label_ == "ENVIRONMENT_TYPE":
+                env_name = normalize_environment_name(ent.text)
+                self.environments.add(env_name)
+    
+    def _is_valid_artifact(self, name):
+        """Check if artifact name is valid (not generic noise)."""
+        if not name or len(name) < 4:
+            return False
+        
+        # Reject single generic words
+        generic_noise = [
+            'service', 'api', 'app', 'application', 'system', 'module',
+            'component', 'interface', 'frontend', 'backend', 'server',
+            'client', 'the', 'a', 'an'
+        ]
+        name_lower = name.lower().strip()
+        if name_lower in generic_noise:
+            return False
+        
+        return True
+    
+    def _extract_nodes_pattern(self, text):
+        """Pattern-based node extraction."""
+        text_lower = text.lower()
+        sentences = re.split(r'[.!?]', text)
+        
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            
+            # Look for node keywords
+            for keyword in self.node_keywords:
+                pattern = rf'\b(\w+\s+)?{keyword}\b'
+                matches = re.finditer(pattern, sentence_lower)
+                for match in matches:
+                    node_text = match.group(0).strip()
+                    node_name = self._normalize_node_name(node_text)
+                    stereotype = self._infer_node_stereotype(node_text)
+                    self._add_node(node_name, stereotype)
+            
+            # Look for technology names that indicate nodes
+            for tech, stereotype in self.tech_mappings.items():
+                if tech in sentence_lower:
+                    pattern = rf'(\w+\s+)?{tech}(\s+\w+)?'
+                    match = re.search(pattern, sentence_lower, re.IGNORECASE)
+                    if match:
+                        node_name = self._normalize_node_name(match.group(0))
+                        self._add_node(node_name, stereotype)
+    
+    def _extract_devices_pattern(self, text):
+        """Extract devices (browsers, mobile, etc.)."""
+        text_lower = text.lower()
+        
+        for keyword in self.device_keywords:
+            if keyword in text_lower:
+                pattern = rf'\b(\w+\s+)?{keyword}(\s+\w+)?\b'
+                matches = re.finditer(pattern, text_lower)
+                for match in matches:
+                    device_name = normalize_device_name(match.group(0))
+                    
+                    # Filter out malformed/noise device names
+                    if not device_name or len(device_name) < 4:
+                        continue
+                    
+                    noise_words = ['client', 'using', 'for', 'with', 'from', 'the', 'and', 'system']
+                    if device_name.lower() in noise_words:
+                        continue
+                    
+                    # Skip if starts with preposition/conjunction
+                    if re.match(r'^(for|with|using|from|and|or|the|via|through|in|on)\s', device_name, re.IGNORECASE):
+                        continue
+                    
+                    # Simply add - normalization already handled "Desktop Browser" → "Web Browser"
+                    # Set automatically deduplicates
+                    self.devices.add(device_name)
+    
+    def _extract_artifacts_pattern(self, text):
+        """
+        Extract software artifacts (services, APIs, frontends, etc.) that should be 
+        deployed inside infrastructure nodes. These represent the actual application
+        components that users interact with.
+        """
+        text_lower = text.lower()
+        
+        # Artifact keywords - these indicate software components that can be deployed
+        artifact_patterns = [
+            # Service patterns: "payment service", "backend services", "order service"
+            (r'(\w+)\s+service(?:s)?(?:\s+API)?', 'service'),
+            # API patterns: "payment API", "REST API", "the API"
+            (r'(\w+)\s+API\b', 'api'),
+            # Frontend patterns: "ecommerce frontend", "web frontend", "mobile frontend"
+            (r'(\w+)\s+frontend', 'frontend'),
+            # Application patterns: "web application", "mobile app"
+            (r'(\w+)\s+(?:application|app)\b', 'application'),
+            # Backend patterns: "backend services", "backend application"
+            (r'backend\s+(\w+)', 'backend'),
+        ]
+        
+        sentences = re.split(r'[.!?]', text)
+        
+        for sentence in sentences:
+            sentence_lower = sentence.lower().strip()
+            if not sentence_lower:
+                continue
+            
+            for pattern, artifact_type in artifact_patterns:
+                matches = re.finditer(pattern, sentence_lower, re.IGNORECASE)
+                for match in matches:
+                    # Get the full match and the qualifier
+                    full_match = match.group(0).strip()
+                    qualifier = match.group(1).strip() if match.lastindex >= 1 else ''
+                    
+                    # Skip noise words as qualifiers
+                    noise_qualifiers = ['the', 'a', 'an', 'this', 'that', 'each', 'every', 'any']
+                    if qualifier.lower() in noise_qualifiers:
+                        continue
+                    
+                    # Build artifact name
+                    if artifact_type == 'backend':
+                        artifact_name = f"Backend {qualifier.title()}"
+                    else:
+                        artifact_name = normalize_component_name(full_match)
+                    
+                    # Skip if too short or noise
+                    if not artifact_name or len(artifact_name) < 4:
+                        continue
+                    
+                    # Skip database names (they're nodes, not artifacts)
+                    db_terms = ['postgresql', 'postgres', 'mysql', 'mongodb', 'redis', 'database', 'cache']
+                    if any(db in artifact_name.lower() for db in db_terms):
+                        continue
+                    
+                    # Determine target node - where should this artifact be deployed?
+                    target_node = None
+                    
+                    # Check sentence context for deployment location
+                    # "services run in Docker containers" → deploy in Docker Container
+                    # "frontend communicates with..." → deploy in Server (default for frontends)
+                    if 'docker' in sentence_lower or 'container' in sentence_lower:
+                        # Find container node
+                        target_node = next((n for n in self.nodes.keys() 
+                                           if 'container' in n.lower() or 'docker' in n.lower()), None)
+                    elif 'server' in sentence_lower:
+                        target_node = next((n for n in self.nodes.keys() 
+                                           if 'server' in n.lower()), None)
+                    else:
+                        # Default: deploy to container if exists, else server
+                        target_node = next((n for n in self.nodes.keys() 
+                                           if 'container' in n.lower() or 'docker' in n.lower()), None)
+                        if not target_node:
+                            target_node = next((n for n in self.nodes.keys() 
+                                               if 'server' in n.lower()), None)
+                    
+                    # Add artifact (deduplication handled by dict)
+                    if artifact_name not in self.artifacts:
+                        self.artifacts[artifact_name] = target_node
+                        logger.info(f"Extracted artifact: {artifact_name} -> deployed on {target_node}")
+
+    def _extract_deployment_relationships(self, text):
+        """Extract deployment relationships (connections between nodes/devices and deployment)."""
+        sentences = re.split(r'[.!?]', text)
+        
+        # Common relationship patterns for deployment diagrams
+        # These show connections between devices, nodes, and how components are deployed
+        relationship_patterns = [
+            # "X sends requests to Y", "X sends data to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+sends?\s+(?:requests?|data|messages?)\s+to\s+(\w+(?:\s+\w+){0,3})', 'connects to'),
+            # "X reads from Y", "X writes to Y", "X reads and writes data to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:reads?|writes?|reads?\s+and\s+writes?)\s+(?:data\s+)?(?:to|from)\s+(\w+(?:\s+\w+){0,3})', 'accesses'),
+            # "X communicates with Y", "X interacts with Y", "X connects to Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:communicates?|interacts?|connects?)\s+(?:with|to)\s+(?:an?\s+)?(?:external\s+)?(\w+(?:\s+\w+){0,3})', 'connects to'),
+            # "X uses Y", "X leverages Y", "X utilizes Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:uses?|leverages?|utilizes?)\s+(?:an?\s+)?(\w+(?:\s+\w+){0,3})', 'uses'),
+            # "X is deployed in/on/inside Y", "X runs on Y", "X hosted on Y"
+            (r'(\w+(?:\s+\w+){0,3})\s+(?:is\s+deployed|deployed|runs?|hosted)\s+(?:in|on|inside)\s+(\w+(?:\s+\w+){0,3})', 'deployed on'),
+            # "Customers/Users interact with X using Y"
+            (r'(?:customers?|users?)\s+(?:interact|access|use)\s+(?:with\s+)?(?:the\s+)?(\w+(?:\s+\w+){0,2})\s+using\s+(\w+(?:\s+\w+){0,2})', 'accesses via'),
+        ]
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            
+            # Try each pattern
+            for pattern, rel_type in relationship_patterns:
+                matches = re.finditer(pattern, sentence, re.IGNORECASE)
+                for match in matches:
+                    source_text = match.group(1).strip()
+                    target_text = match.group(2).strip()
+                    
+                    # Try to match to known nodes or devices
+                    source = self._find_deployment_entity(source_text)
+                    target = self._find_deployment_entity(target_text)
+                    
+                    if source and target and source != target:
+                        # Avoid duplicate relationships
+                        if not any(r['source'] == source and r['target'] == target 
+                                  for r in self.deployment_relationships):
+                            self.deployment_relationships.append({
+                                'source': source,
+                                'target': target,
+                                'type': rel_type
+                            })
+                            logger.debug(f"Extracted deployment relationship: {source} -> {target} ({rel_type})")
+        
+        # ALWAYS ensure devices have access relationships to the system
+        # Devices (browsers, mobile) access the application (artifacts), not infrastructure directly
+        # Check if any device already has a relationship
+        devices_with_relationships = {r['source'] for r in self.deployment_relationships if r['source'] in self.devices}
+        devices_without_relationships = self.devices - devices_with_relationships
+        
+        if devices_without_relationships:
+            # Find the best target for devices (frontend artifact preferred)
+            frontend_artifact = None
+            service_artifact = None
+            
+            for artifact_name in self.artifacts.keys():
+                art_lower = artifact_name.lower()
+                if 'frontend' in art_lower or 'application' in art_lower or 'app' in art_lower:
+                    frontend_artifact = artifact_name
+                elif 'service' in art_lower or 'api' in art_lower or 'backend' in art_lower:
+                    if not service_artifact:  # Take first service found
+                        service_artifact = artifact_name
+            
+            # Target priority: frontend artifact > service artifact > server node
+            target = frontend_artifact or service_artifact
+            
+            if not target:
+                # No artifacts, fallback to server
+                target = next((n for n in self.nodes.keys() if 'server' in n.lower()), None)
+            
+            if target:
+                for device in devices_without_relationships:
+                    self.deployment_relationships.append({
+                        'source': device,
+                        'target': target,
+                        'type': 'accesses'
+                    })
+                    logger.info(f"Added device access: {device} accesses {target}")
+    
+    def _find_deployment_entity(self, text):
+        """Find matching node or device name from text."""
+        text_lower = text.lower().strip()
+        
+        # Remove common words
+        text_lower = re.sub(r'\b(the|a|an|this|that)\b', '', text_lower).strip()
+        
+        logger.debug(f"Finding deployment entity for: '{text}' → '{text_lower}'")
+        
+        # Direct match with known nodes
+        for node_name in self.nodes.keys():
+            if node_name.lower() == text_lower or node_name.lower() in text_lower or text_lower in node_name.lower():
+                logger.debug(f"  → Matched node: {node_name}")
+                return node_name
+        
+        # Match with devices
+        for device_name in self.devices:
+            if device_name.lower() == text_lower or device_name.lower() in text_lower or text_lower in device_name.lower():
+                logger.debug(f"  → Matched device: {device_name}")
+                return device_name
+        
+        # Try normalization to canonical form
+        normalized_node = self._normalize_node_name(text)
+        if normalized_node in self.nodes:
+            logger.debug(f"  → Matched via node normalization: {normalized_node}")
+            return normalized_node
+        
+        # Check if normalized node matches existing nodes
+        for node_name in self.nodes.keys():
+            if normalized_node.lower() in node_name.lower() or node_name.lower() in normalized_node.lower():
+                logger.debug(f"  → Matched via partial node normalization: {node_name}")
+                return node_name
+        
+        # Check if it matches a device pattern
+        normalized_device = normalize_device_name(text)
+        if normalized_device in self.devices:
+            logger.debug(f"  → Matched via device normalization: {normalized_device}")
+            return normalized_device
+        
+        # Check if normalized device matches existing devices
+        for device_name in self.devices:
+            if normalized_device.lower() in device_name.lower() or device_name.lower() in normalized_device.lower():
+                logger.debug(f"  → Matched via partial device normalization: {device_name}")
+                return device_name
+        
+        # Match with artifacts (software components deployed)
+        for artifact_name in self.artifacts.keys():
+            if artifact_name.lower() == text_lower or artifact_name.lower() in text_lower or text_lower in artifact_name.lower():
+                logger.debug(f"  → Matched artifact: {artifact_name}")
+                return artifact_name
+        
+        logger.debug(f"  → No match found")
+        return None
+    
+    def _extract_artifact_name(self, text):
+        """Extract artifact name from text."""
+        # Look for component-like names (capitalized words)
+        words = text.split()
+        for i in range(len(words) - 1, -1, -1):
+            word = words[i].strip(',')
+            if word and word[0].isupper():
+                # Could be a component/artifact name
+                return ' '.join(words[max(0, i-1):i+1]).strip(',').strip()
+        return None
+    
+    def _find_node_in_text(self, text):
+        """Find a known node name in text."""
+        text = text.strip().lower()
+        for node_name in self.nodes.keys():
+            if node_name.lower() in text:
+                return node_name
+        # Try to extract from known tech
+        for tech, _ in self.tech_mappings.items():
+            if tech in text:
+                return self._normalize_node_name(tech)
+        return None
+    
+    def _normalize_node_name(self, name):
+        """Normalize node names using the centralized normalization."""
+        return normalize_node_name(name)
+    
+    def _infer_node_stereotype(self, text):
+        """Infer node stereotype from text."""
+        text_lower = text.lower()
+        for tech, stereotype in self.tech_mappings.items():
+            if tech in text_lower:
+                return stereotype
+        return "<<server>>"  # Default stereotype
+    
+    def _add_node(self, name, stereotype=None):
+        """Add a node to the collection."""
+        if name and name not in self.nodes:
+            self.nodes[name] = {
+                'stereotype': stereotype or "<<server>>",
+                'artifacts': []
+            }
+    
+    def _build_deployment_elements(self):
+        """Build model elements from extracted data with cross-collection deduplication and nesting."""
+        from scripts.normalization_config_loader import get_config
+        
+        config = get_config()
+        
+        # Detect containment relationships (what's inside what)
+        # Common patterns: "X deployed inside/in/on Y", "X hosted on Y", "Y hosts X"
+        containment_map = {}  # child_node -> parent_node
+        
+        # Extract containment from original text (if available)
+        if hasattr(self, '_original_text'):
+            # More specific patterns that look for actual infrastructure terms
+            containment_patterns = [
+                # "deployed inside Docker containers" - look for known node types
+                (r'deployed\s+(?:inside|in|on)\s+(\w+(?:\s+\w+)?(?:\s+containers?)?)', 'parent'),
+                # "hosted on Ubuntu servers" - look for server patterns
+                (r'hosted\s+on\s+(\w+(?:\s+\w+)?(?:\s+servers?)?)', 'parent'),
+                # "runs on Kubernetes"
+                (r'runs?\s+on\s+(\w+(?:\s+\w+)?)', 'parent'),
+                # "containers hosted on servers" - containers inside servers
+                (r'(\w+\s+)?containers?\s+hosted\s+on\s+(\w+(?:\s+\w+)?(?:\s+servers?)?)', 'container_in_server'),
+            ]
+            
+            logger.debug(f"Searching for containment in text: {self._original_text[:100]}...")
+            
+            # First, establish what should be inside what based on infrastructure hierarchy
+            # Server > Container > Database is typical hierarchy
+            has_server = any('server' in n.lower() for n in self.nodes.keys())
+            has_container = any('container' in n.lower() or 'docker' in n.lower() for n in self.nodes.keys())
+            has_database = any(self.nodes[n]['stereotype'] == '<<database>>' for n in self.nodes.keys())
+            
+            # Check text for explicit containment
+            text_lower = self._original_text.lower()
+            
+            # Find container and server nodes
+            container_node = next((n for n in self.nodes.keys() if 'container' in n.lower() or 'docker' in n.lower()), None)
+            server_node = next((n for n in self.nodes.keys() if 'server' in n.lower()), None)
+            
+            # Various patterns that indicate containers are on/in servers:
+            # - "run in Docker containers on Linux servers"
+            # - "deployed inside Docker containers hosted on servers"
+            # - "containers hosted on servers"
+            container_on_server_patterns = [
+                r'(?:run|runs|running)\s+(?:in|on)\s+(?:\w+\s+)?containers?\s+on\s+(?:\w+\s+)?servers?',
+                r'deployed\s+(?:inside|in|on)\s+(?:\w+\s+)?containers?',
+                r'containers?\s+(?:hosted|deployed|running)\s+on\s+(?:\w+\s+)?servers?',
+                r'(?:docker|kubernetes|k8s)\s+(?:on|running\s+on)\s+(?:\w+\s+)?servers?',
+            ]
+            
+            for pattern in container_on_server_patterns:
+                if re.search(pattern, text_lower):
+                    if container_node and server_node and container_node not in containment_map:
+                        containment_map[container_node] = server_node
+                        logger.info(f"Containment: {container_node} inside {server_node} (pattern: {pattern})")
+                        break
+            
+            # Databases are typically inside containers or servers
+            if has_database and (has_container or has_server):
+                db_nodes = [n for n in self.nodes.keys() if self.nodes[n]['stereotype'] == '<<database>>']
+                
+                for db_node in db_nodes:
+                    if db_node not in containment_map:
+                        # Put database in container if exists, otherwise in server
+                        parent = container_node or server_node
+                        if parent:
+                            containment_map[db_node] = parent
+                            logger.info(f"Containment: {db_node} inside {parent}")
+        
+        # Get cross-collection rules (prevent entities from appearing in multiple collections)
+        cross_collection_rules = config.get_cross_collection_rules()
+        
+        # Deduplicate: if an entity appears in both nodes and devices, keep only the preferred collection
+        entities_to_nodes = set(self.nodes.keys())
+        entities_to_devices = set(self.devices.copy())
+        
+        for rule in cross_collection_rules:
+            patterns = rule.get('patterns', [])
+            preferred = rule.get('preferred_collection', 'nodes')
+            
+            # Find entities matching the patterns
+            for pattern in patterns:
+                # Check both collections for matches
+                node_matches = {n for n in entities_to_nodes if re.search(pattern, n, re.IGNORECASE)}
+                device_matches = {d for d in entities_to_devices if re.search(pattern, d, re.IGNORECASE)}
+                
+                all_matches = node_matches | device_matches
+                
+                if len(all_matches) > 0:
+                    # Keep in preferred collection only
+                    if preferred == 'nodes':
+                        # Remove from devices, keep in nodes (or add to nodes if not there)
+                        for match in all_matches:
+                            if match in device_matches:
+                                entities_to_devices.discard(match)
+                            if match not in entities_to_nodes:
+                                # Add to nodes
+                                self._add_node(match, "<<browser>>" if 'browser' in match.lower() else "<<device>>")
+                                entities_to_nodes.add(match)
+                    else:  # preferred == 'devices'
+                        # Remove from nodes, keep in devices
+                        for match in all_matches:
+                            if match in node_matches:
+                                if match in self.nodes:
+                                    del self.nodes[match]
+                                entities_to_nodes.discard(match)
+                            if match not in entities_to_devices:
+                                entities_to_devices.add(match)
+        
+        # Update self.devices to match deduplicated set
+        self.devices = entities_to_devices
+        
+        # Consolidate browser devices - if we have multiple browser variants, keep only "Web Browser"
+        browser_devices = [d for d in self.devices if 'browser' in d.lower()]
+        if len(browser_devices) > 1 or (len(browser_devices) == 1 and browser_devices[0] != 'Web Browser'):
+            # Remove all browser variants
+            for browser in browser_devices:
+                self.devices.discard(browser)
+            # Add canonical form
+            self.devices.add('Web Browser')
+        
+        # =====================================================================
+        # ARTIFACT DEDUPLICATION
+        # Remove generic artifacts when specific ones exist, and dedupe plurals
+        # =====================================================================
+        artifacts_to_remove = set()
+        artifact_names = list(self.artifacts.keys())
+        
+        for artifact in artifact_names:
+            artifact_lower = artifact.lower()
+            
+            # 1. Remove plural duplicates: "Backend Services" when "Backend Service" exists
+            if artifact_lower.endswith('s') and not artifact_lower.endswith('ss'):
+                singular = artifact[:-1]  # Remove 's'
+                if singular in self.artifacts:
+                    artifacts_to_remove.add(artifact)
+                    logger.debug(f"Removing plural artifact '{artifact}' (singular '{singular}' exists)")
+                    continue
+            
+            # 2. Remove "Api Service" when a specific service exists (Payment Service, Order Service, etc.)
+            generic_artifacts = ['api service', 'backend service', 'the service', 'web service']
+            if artifact_lower in generic_artifacts:
+                # Check if a more specific service exists
+                specific_keywords = ['payment', 'order', 'user', 'auth', 'notification', 
+                                    'inventory', 'shipping', 'billing', 'email', 'message']
+                for other_artifact in artifact_names:
+                    other_lower = other_artifact.lower()
+                    if other_lower != artifact_lower:
+                        # Check if other artifact has a specific keyword + service/api
+                        for keyword in specific_keywords:
+                            if keyword in other_lower and ('service' in other_lower or 'api' in other_lower):
+                                artifacts_to_remove.add(artifact)
+                                logger.debug(f"Removing generic artifact '{artifact}' (specific '{other_artifact}' exists)")
+                                break
+                    if artifact in artifacts_to_remove:
+                        break
+        
+        # Remove marked artifacts
+        for artifact in artifacts_to_remove:
+            if artifact in self.artifacts:
+                del self.artifacts[artifact]
+        
+        logger.info(f"After artifact deduplication: {len(self.artifacts)} artifacts")
+        
+        # =====================================================================
+        # ASSIGN ARTIFACTS TO NODES
+        # Artifacts (services) should be deployed inside infrastructure nodes
+        # Priority: Container > Server (services typically run in containers)
+        # =====================================================================
+        container_node = next((n for n in self.nodes.keys() if 'container' in n.lower() or 'docker' in n.lower()), None)
+        server_node = next((n for n in self.nodes.keys() if 'server' in n.lower()), None)
+        target_node = container_node or server_node  # Prefer container
+        
+        if target_node:
+            # Assign all unassigned artifacts to the target node
+            for artifact_name in self.artifacts.keys():
+                if self.artifacts[artifact_name] is None:
+                    self.artifacts[artifact_name] = target_node
+                    logger.debug(f"Assigned artifact '{artifact_name}' to node '{target_node}'")
+        
+        # Add nodes with their artifacts and children nodes
+        for node_name, node_data in self.nodes.items():
+            # Find artifacts deployed on this node
+            node_artifacts = [art for art, node in self.artifacts.items() if node == node_name]
+            
+            # Find child nodes (nodes contained within this node)
+            child_nodes = [child for child, parent in containment_map.items() if parent == node_name]
+            
+            self.model_elements.append({
+                'type': 'Node',
+                'data': {
+                    'name': node_name,
+                    'stereotype': node_data['stereotype'],
+                    'artifacts': node_artifacts,
+                    'children': child_nodes  # Add children for nesting
+                },
+                'source_id': None
+            })
+        
+        # Add devices
+        for device_name in self.devices:
+            self.model_elements.append({
+                'type': 'Device',
+                'data': {
+                    'name': device_name,
+                    'stereotype': '<<browser>>' if 'browser' in device_name.lower() else '<<device>>'
+                },
+                'source_id': None
+            })
+        
+        # Add orphaned artifacts (not assigned to any node)
+        orphaned_artifacts = [art for art, node in self.artifacts.items() if node is None]
+        for artifact_name in orphaned_artifacts:
+            self.model_elements.append({
+                'type': 'Artifact',
+                'data': {
+                    'name': artifact_name
+                },
+                'source_id': None
+            })
+        
+        # Add deployment relationships (connections between nodes/devices)
+        # Skip "deployed on" relationships when artifact is already INSIDE the node
+        # Also skip relationships that reference removed/deduplicated artifacts
+        valid_artifact_names = set(self.artifacts.keys())
+        node_names = set(self.nodes.keys())
+        device_names = set(self.devices)
+        
+        # Build set of all valid entity names (for relationship validation)
+        all_valid_entities = valid_artifact_names | node_names | device_names
+        
+        for rel in self.deployment_relationships:
+            source = rel.get('source', '')
+            target = rel.get('target', '')
+            
+            # Skip relationships where source or target was removed during deduplication
+            # Check if source/target exists in our valid entities
+            source_valid = any(source.lower() == e.lower() or source.lower() in e.lower() or e.lower() in source.lower() 
+                              for e in all_valid_entities)
+            target_valid = any(target.lower() == e.lower() or target.lower() in e.lower() or e.lower() in target.lower() 
+                              for e in all_valid_entities)
+            
+            if not source_valid or not target_valid:
+                logger.debug(f"Skipping relationship with invalid entity: {source} -> {target}")
+                continue
+            
+            # Skip redundant "deployed on" relationships where artifact is already inside the node
+            if rel.get('type') == 'deployed on':
+                # If source is an artifact that's already deployed to target node, skip
+                if source in valid_artifact_names:
+                    deployed_node = self.artifacts.get(source)
+                    if deployed_node and (deployed_node == target or 
+                                          target.lower() in deployed_node.lower() or
+                                          deployed_node.lower() in target.lower()):
+                        logger.debug(f"Skipping redundant 'deployed on' relationship: {source} -> {target}")
+                        continue
+            
+            self.model_elements.append({
+                'type': 'DeploymentRelationship',
+                'data': rel,
+                'source_id': None
+            })
+    
+    def _find_node_match(self, text):
+        """Find matching node name from text."""
+        text_lower = text.lower().strip()
+        for node_name in self.nodes.keys():
+            if node_name.lower() == text_lower or node_name.lower() in text_lower or text_lower in node_name.lower():
+                return node_name
+        return None
+
