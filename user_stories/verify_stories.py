@@ -96,13 +96,18 @@ def verify_suite(suite_name, stories, update_gold=False):
     except:
         nlp_standard = spacy.blank("en")
     
-    MODEL_PATH = os.path.join(parent_dir, "my_uml_model", "model-best")
+    MODEL_PATH = os.path.join(parent_dir, "behavioral_uml_model", "model-best")
     nlp_ner = None
     if os.path.exists(MODEL_PATH):
         try:
             nlp_ner = spacy.load(MODEL_PATH)
+            print(f"Loaded NER model from: {MODEL_PATH}")
         except:
+            print(f"Warning: Failed to load model at {MODEL_PATH}")
             pass
+    else:
+        print(f"Warning: No NER model found at {MODEL_PATH}. Using fallback/regex.")
+
 
     # Extended Regression: Verify ALL diagram types
     extractors = {
