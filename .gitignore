@@ -127,6 +127,8 @@ logs/
 *.spacy
 *.model
 my_uml_model/
+behavioral_uml_model/
+architecture_uml_model/
 models/
 *.bin
 *.pkl
