@@ -148,3 +148,30 @@ class PersistenceLayer:
         except Exception as e:
             logger.error(f"Get model elements error: {e}")
             return []
+
+    def update_user_narration(self, project_id, user_narration):
+        """Update user narration (architecture context) for a project."""
+        try:
+            self.connection.execute(
+                text("UPDATE projects SET user_narration = :narration WHERE projectid = :pid"),
+                {"narration": user_narration, "pid": project_id}
+            )
+            self.connection.commit()
+            return True
+        except Exception as e:
+            self.connection.rollback()
+            logger.error(f"Update user narration error: {e}")
+            return False
+
+    def get_user_narration(self, project_id):
+        """Get user narration (architecture context) for a project."""
+        try:
+            result = self.connection.execute(
+                text("SELECT user_narration FROM projects WHERE projectid = :pid"),
+                {"pid": project_id}
+            )
+            row = result.first()
+            return row[0] if row else None
+        except Exception as e:
+            logger.error(f"Get user narration error: {e}")
+            return None

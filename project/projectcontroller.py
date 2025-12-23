@@ -161,94 +161,158 @@ def update_project_logic(request, current_user, project_id, is_json=False):
                 flash(msg, 'warning')
                 return redirect(url_for('project.view_project', project_id=project_id))
             
-            # Get stories and diagram type
+            # Get stories, user narration, and diagram type
             if is_json:
                 data = request.get_json() or {}
-                stories_text = data.get('user_stories', '').strip()
+                stories_raw = data.get('user_stories', '')
                 diagram_type = data.get('diagram_type', 'class')
-                logger.info(f"[update_project_logic] JSON - diagram_type from request: '{diagram_type}'")
+                user_narration = data.get('user_narration', '')  # Architecture context
+                logger.info(f"[update_project_logic] JSON - stories_raw type: {type(stories_raw)}, diagram_type: '{diagram_type}'")
+                
+                # Handle case where user_stories might be a dict or object
+                if isinstance(stories_raw, dict):
+                    logger.warning(f"[update_project_logic] user_stories is dict, attempting to extract text: {stories_raw}")
+                    stories_text = stories_raw.get('text', '') or str(stories_raw)
+                elif isinstance(stories_raw, str):
+                    stories_text = stories_raw.strip()
+                else:
+                    logger.warning(f"[update_project_logic] Unexpected user_stories type: {type(stories_raw)}")
+                    stories_text = str(stories_raw)
             else:
                 stories_text = request.form.get('user_stories', '').strip()
+                user_narration = request.form.get('user_narration', '').strip()
                 diagram_type = request.form.get('diagram_type', 'class')
                 logger.info(f"[update_project_logic] FORM - diagram_type from request: '{diagram_type}'")
                 logger.debug(f"[update_project_logic] Form data: {request.form}")
             
             logger.info(f"[update_project_logic] Processing with diagram_type='{diagram_type}'")
             
-            if not stories_text:
-                msg = "No stories provided. Add some to generate diagram."
-                logger.warning(msg)
-                if is_json:
-                    return {'success': False, 'message': msg}
-                flash(msg)
-                return redirect(url_for('project.view_project', project_id=project_id))
+            # Check if architectural diagram requested
+            is_architectural_diagram = diagram_type in ['component', 'deployment']
+            
+            # Validate input based on diagram type
+            if is_architectural_diagram:
+                # Architecture diagrams require user narration
+                if not user_narration or not user_narration.strip():
+                    msg = f"{diagram_type.capitalize()} diagram generation requires explicit architectural context."
+                    logger.warning(f"[update_project_logic] {msg}")
+                    if is_json:
+                        return {
+                            'success': False,
+                            'error_code': 'ARCH_CONTEXT_MISSING',
+                            'diagram_type': diagram_type,
+                            'diagram_url': None,
+                            'message': msg,
+                            'missing_inputs': ['architecture_context'],
+                            'suggestion': 'Provide a brief description of system components, technologies used, and deployment environment.'
+                        }
+                    flash(msg, 'warning')
+                    return redirect(url_for('project.view_project', project_id=project_id))
+                
+                # Update user narration in database
+                persistence.update_user_narration(project_id, user_narration)
+                logger.info(f"[update_project_logic] Updated user narration for project {project_id}")
+            else:
+                # Behavioral diagrams require user stories
+                if not stories_text:
+                    msg = "No stories provided. Add some to generate diagram."
+                    logger.warning(msg)
+                    if is_json:
+                        return {'success': False, 'message': msg}
+                    flash(msg)
+                    return redirect(url_for('project.view_project', project_id=project_id))
             
             # Delete model elements FIRST (they reference stories via foreign key)
             logger.info(f"[update_project_logic] Deleting old model elements")
             persistence.delete_model_elements(project_id)
             
-            # Now safe to save new stories (this deletes old stories first)
+            # Save stories for behavioral diagrams (optional for architectural diagrams)
             user_id = current_user.id if hasattr(current_user, 'id') else (current_user.get_id() if hasattr(current_user, 'get_id') else None)
-            logger.info(f"[update_project_logic] Saving stories for project {project_id}")
-            persistence.save_stories_from_text(project_id, stories_text, user_id)
             
-            logger.info(f"[update_project_logic] Retrieving saved stories")
-            stories_list = persistence.get_stories_list(project_id)
-            logger.info(f"[update_project_logic] Retrieved {len(stories_list)} stories")
+            if not is_architectural_diagram and stories_text:
+                logger.info(f"[update_project_logic] Saving stories for project {project_id}")
+                persistence.save_stories_from_text(project_id, stories_text, user_id)
+                
+                logger.info(f"[update_project_logic] Retrieving saved stories")
+                stories_list = persistence.get_stories_list(project_id)
+                logger.info(f"[update_project_logic] Retrieved {len(stories_list)} stories")
+                
+                if not stories_list:
+                    msg = "Failed to retrieve stories. Check input and try again."
+                    logger.warning(msg)
+                    if is_json:
+                        return {'success': False, 'message': msg}
+                    flash(msg)
+                    return redirect(url_for('project.view_project', project_id=project_id))
+                
+                # Log first story for debugging
+                if stories_list:
+                    logger.debug(f"[update_project_logic] First story: {stories_list[0]}")
             
-            if not stories_list:
-                msg = "Failed to retrieve stories. Check input and try again."
-                logger.warning(msg)
-                if is_json:
-                    return {'success': False, 'message': msg}
-                flash(msg)
-                return redirect(url_for('project.view_project', project_id=project_id))
+            # Route to appropriate pipeline based on diagram type
+            logger.info(f"[update_project_logic] Routing to {'architecture' if is_architectural_diagram else 'behavioral'} pipeline")
             
-            # Log first story for debugging
-            if stories_list:
-                logger.debug(f"[update_project_logic] First story: {stories_list[0]}")
-            
-            # Generate diagram
-            logger.info(f"[update_project_logic] Creating extractor and generator")
-            # Load spaCy models
-            # 1. Standard Model for Syntax
-            try:
-                nlp_standard = spacy.load("en_core_web_lg")
-                logger.info("Loaded en_core_web_lg.")
-            except Exception as e:
-                logger.warning(f"Failed to load en_core_web_lg: {e}. Using blank.")
-                nlp_standard = spacy.blank("en")
-
-            # 2. Custom NER Model
-            MODEL_PATH = "./my_uml_model/model-best"
-            nlp_ner = None
-            if not os.path.exists(MODEL_PATH):
-                logger.warning(f"Model not found at {MODEL_PATH}.")
+            if is_architectural_diagram:
+                # ARCHITECTURE PIPELINE
+                from main import component_diagram_extractor, deployment_diagram_extractor, diagram_generator
+                
+                if diagram_type == 'component':
+                    extractor = component_diagram_extractor
+                elif diagram_type == 'deployment':
+                    extractor = deployment_diagram_extractor
+                else:
+                    msg = f"Unknown architectural diagram type: {diagram_type}"
+                    logger.error(msg)
+                    if is_json:
+                        return {'success': False, 'message': msg}
+                    flash(msg, 'error')
+                    return redirect(url_for('project.view_project', project_id=project_id))
+                
+                logger.info(f"[update_project_logic] Extracting {diagram_type} diagram from user narration")
+                new_model_elements = extractor.extract(user_narration)
+                logger.info(f"[update_project_logic] Extracted {len(new_model_elements)} model elements")
+                
             else:
+                # BEHAVIORAL PIPELINE
+                # Load models (keeping existing logic)
                 try:
-                    nlp_ner = spacy.load(MODEL_PATH)
-                    logger.info("Custom NER model loaded successfully.")
+                    nlp_standard = spacy.load("en_core_web_lg")
+                    logger.info("Loaded en_core_web_lg.")
                 except Exception as e:
-                    logger.error(f"Model load error: {e}.")
+                    logger.warning(f"Failed to load en_core_web_lg: {e}. Using blank.")
+                    nlp_standard = spacy.blank("en")
 
-            extractors = {
-                "class": ClassDiagramExtractor(nlp_standard, ner_model=nlp_ner),
-                "use_case": UseCaseDiagramExtractor(nlp_standard, ner_model=nlp_ner),
-                "sequence": SequenceDiagramExtractor(nlp_standard, ner_model=nlp_ner),
-                "activity": ActivityDiagramExtractor(nlp_standard, ner_model=nlp_ner)
-            }
-            extractor = extractors.get(diagram_type, ClassDiagramExtractor(nlp_standard, ner_model=nlp_ner))
-            generator = DiagramGenerator()
+                BEHAVIORAL_MODEL_PATH = "./behavioral_uml_model/model-best"
+                nlp_behavioral = None
+                if not os.path.exists(BEHAVIORAL_MODEL_PATH):
+                    logger.warning(f"Behavioral model not found at {BEHAVIORAL_MODEL_PATH}.")
+                else:
+                    try:
+                        nlp_behavioral = spacy.load(BEHAVIORAL_MODEL_PATH)
+                        logger.info("Behavioral NER model loaded successfully.")
+                    except Exception as e:
+                        logger.error(f"Model load error: {e}.")
 
-            logger.info(f"[update_project_logic] Extracting diagram model with type '{diagram_type}'")
-            new_model_elements = extractor.extract(stories_list)
-            logger.info(f"[update_project_logic] Extracted {len(new_model_elements)} model elements")
-
+                extractors = {
+                    "class": ClassDiagramExtractor(nlp_standard, ner_model=nlp_behavioral),
+                    "use_case": UseCaseDiagramExtractor(nlp_standard, ner_model=nlp_behavioral),
+                    "sequence": SequenceDiagramExtractor(nlp_standard, ner_model=nlp_behavioral),
+                    "activity": ActivityDiagramExtractor(nlp_standard, ner_model=nlp_behavioral)
+                }
+                extractor = extractors.get(diagram_type, ClassDiagramExtractor(nlp_standard, ner_model=nlp_behavioral))
+                
+                logger.info(f"[update_project_logic] Extracting diagram model with type '{diagram_type}'")
+                new_model_elements = extractor.extract(stories_list)
+                logger.info(f"[update_project_logic] Extracted {len(new_model_elements)} model elements")
+            
+            # Save and generate diagram (common for both pipelines)
+            from main import diagram_generator
+            
             logger.info(f"[update_project_logic] Saving model elements")
             persistence.save_model_elements(project_id, new_model_elements)
 
             logger.info(f"[update_project_logic] Generating diagram")
-            generator.generate_diagram(project_id, diagram_type, new_model_elements)
+            diagram_generator.generate_diagram(project_id, diagram_type, new_model_elements)
             logger.info(f"[update_project_logic] Diagram generation complete")
         
         msg = "Diagram updated successfully!"

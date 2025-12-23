@@ -48,12 +48,13 @@ class Project(Base):
     projectid = Column(String(36), primary_key=True, unique=True, nullable=False)
     projectname = Column(String(255), nullable=False)
     userid = Column(String(36), ForeignKey('users.userid'), nullable=True)
+    user_narration = Column(String, nullable=True)
     createdat = Column(DateTime, default=datetime.datetime.utcnow)
     user = relationship('User', back_populates='projects')
     stories = relationship('UserStory', back_populates='project')
     elements = relationship('ModelElement', back_populates='project')
     
-    def __init__(self, projectid=None, projectname=None, userid=None):
+    def __init__(self, projectid=None, projectname=None, userid=None, user_narration=None):
         if projectid is not None:
             self.projectid = projectid
         else:
@@ -62,6 +63,8 @@ class Project(Base):
             self.projectname = projectname
         if userid is not None:
             self.userid = userid
+        if user_narration is not None:
+            self.user_narration = user_narration
 
 
 
